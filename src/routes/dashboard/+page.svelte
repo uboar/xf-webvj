@@ -72,7 +72,7 @@
 	};
 
 	const sendDeckOpacity = (deckIndex: number, opacity: number) => {
-		// デッキの状態も更新
+		// デッキの状態も更新（透明度のみ）
 		if (decks[deckIndex]) {
 			decks[deckIndex].opacity = opacity * 0.01;
 		}
@@ -83,8 +83,8 @@
 			body: { type: 'deck', deckIndex, opacity: opacity * 0.01 }
 		});
 		
-		// デッキ状態も送信して同期を保つ
-		sendDeckState();
+		// 透明度変更時はデッキ状態の送信を行わない（再生状態を保持）
+		// sendDeckState(); // この行をコメントアウト
 	};
 	const getMovieList = async () => {
 		const res = await fetch('/api/get-movie-list');

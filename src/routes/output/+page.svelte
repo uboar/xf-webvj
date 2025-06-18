@@ -70,11 +70,33 @@
 
 	const updateUnifiedOpacity = (data: { deck1: number; deck2: number; opacityState: any }) => {
 		if (deckElement[0] && deckElement[1]) {
-			// 統合されたイベントから直接最終透明度を適用
+			// 現在の再生状態を保存
+			const deck1Playing = !deckElement[0].paused;
+			const deck2Playing = !deckElement[1].paused;
+			const deck1CurrentTime = deckElement[0].currentTime;
+			const deck2CurrentTime = deckElement[1].currentTime;
+			
+			// 透明度のみを更新（再生状態に影響しない）
 			deckElement[0].style.opacity = data.deck1.toString();
 			deckElement[1].style.opacity = data.deck2.toString();
 			
-			console.log('Opacity updated:', { deck1: data.deck1, deck2: data.deck2 });
+			// 再生状態が変わっていないことを確認（念のため）
+			if (deck1Playing && deckElement[0].paused) {
+				deckElement[0].currentTime = deck1CurrentTime;
+				deckElement[0].play();
+			}
+			if (deck2Playing && deckElement[1].paused) {
+				deckElement[1].currentTime = deck2CurrentTime;
+				deckElement[1].play();
+			}
+			
+			// デバッグ用（必要に応じてコメントアウト）
+			// console.log('Opacity updated (playback preserved):', { 
+			//	deck1: data.deck1, 
+			//	deck2: data.deck2,
+			//	deck1Playing,
+			//	deck2Playing
+			// });
 		}
 	};
 

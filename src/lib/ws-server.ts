@@ -72,8 +72,12 @@ const handle = (message: WSMessage) => {
           if (opacityMsg.type === 'deck' && opacityMsg.deckIndex !== undefined) {
             if (opacityMsg.deckIndex === 0) {
               opacityState.deck1BaseOpacity = opacityMsg.opacity;
+              // サーバー側のデッキ状態も更新（透明度のみ）
+              decksSrvState[0].opacity = opacityMsg.opacity;
             } else if (opacityMsg.deckIndex === 1) {
               opacityState.deck2BaseOpacity = opacityMsg.opacity;
+              // サーバー側のデッキ状態も更新（透明度のみ）
+              decksSrvState[1].opacity = opacityMsg.opacity;
             }
           } else if (opacityMsg.type === 'crossfade') {
             opacityState.crossfadeValue = opacityMsg.opacity;
@@ -86,14 +90,14 @@ const handle = (message: WSMessage) => {
             opacityState: opacityState
           };
           
-          // 出力画面に送信
+          // 出力画面に送信（透明度のみ更新）
           send({
             to: "output",
             function: "update-opacity",
             body: finalOpacities
           });
           
-          // ダッシュボードにも状態を同期
+          // ダッシュボードにも状態を同期（透明度のみ）
           send({
             to: "dashboard",
             function: "opacity-state-sync",
