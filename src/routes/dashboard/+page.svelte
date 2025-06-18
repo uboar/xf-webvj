@@ -29,11 +29,11 @@
 			event: (ws, body) => {
 				if (body) {
 					decks = body as DeckType[];
-					// デッキの透明度をUIに反映
-					if (decks[0]?.opacity !== undefined) {
+					// 初期化時のみデッキの透明度をUIに反映
+					if (decks[0]?.opacity !== undefined && deck1Opacity === 100) {
 						deck1Opacity = Math.round(decks[0].opacity * 100);
 					}
-					if (decks[1]?.opacity !== undefined) {
+					if (decks[1]?.opacity !== undefined && deck2Opacity === 100) {
 						deck2Opacity = Math.round(decks[1].opacity * 100);
 					}
 				}
@@ -45,9 +45,21 @@
 			event: (ws, body) => {
 				if (body) {
 					const opacityState = body as { deck1BaseOpacity: number; deck2BaseOpacity: number; crossfadeValue: number };
-					deck1Opacity = Math.round(opacityState.deck1BaseOpacity * 100);
-					deck2Opacity = Math.round(opacityState.deck2BaseOpacity * 100);
-					xfd = Math.round(opacityState.crossfadeValue * 100);
+					// サーバーからの同期は、ユーザーが操作中でない場合のみ適用
+					const newDeck1Opacity = Math.round(opacityState.deck1BaseOpacity * 100);
+					const newDeck2Opacity = Math.round(opacityState.deck2BaseOpacity * 100);
+					const newXfd = Math.round(opacityState.crossfadeValue * 100);
+					
+					// 値が実際に変更された場合のみ更新（無限ループを防ぐ）
+					if (Math.abs(deck1Opacity - newDeck1Opacity) > 1) {
+						deck1Opacity = newDeck1Opacity;
+					}
+					if (Math.abs(deck2Opacity - newDeck2Opacity) > 1) {
+						deck2Opacity = newDeck2Opacity;
+					}
+					if (Math.abs(xfd - newXfd) > 1) {
+						xfd = newXfd;
+					}
 				}
 			}
 		});
