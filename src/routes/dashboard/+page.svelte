@@ -13,6 +13,14 @@
 	};
 
 	let downloading = $state(false);
+	
+	// 名前変更・削除用の状態
+	let renameModalOpen = $state(false);
+	let selectedMovie = $state('');
+	let newMovieName = $state('');
+	let renamingInProgress = $state(false);
+	let deletingInProgress = $state(false);
+	let showDeleteConfirm = $state(false);
 
 	let decks: DeckType[] = $state([]);
 
@@ -118,6 +126,105 @@
 		await getMovieList();
 		downloading = false;
 		downloadMovie.url = '';
+	};
+	
+	// 名前変更モーダルを開く
+	const openRenameModal = (movie: string) => {
+		selectedMovie = movie;
+		newMovieName = movie;
+		renameModalOpen = true;
+	};
+	
+	// ファイル名を変更する
+	const renameMovie = async () => {
+		try {
+			renamingInProgress = true;
+			
+			const response = await fetch('/api/rename-movie', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					oldName: selectedMovie,
+					newName: newMovieName
+				})
+			});
+			
+			const result = await response.json();
+			
+			if (response.ok) {
+				// デッキに読み込まれている場合は更新
+				if (decks[0].movie === selectedMovie) {
+					decks[0].movie = newMovieName;
+					sendDeckState();
+				}
+				if (decks[1].movie === selectedMovie) {
+					decks[1].movie = newMovieName;
+					sendDeckState();
+				}
+				
+				// リストを更新
+				await getMovieList();
+				renameModalOpen = false;
+			} else {
+				alert(`エラー: ${result.error}`);
+			}
+		} catch (error) {
+			console.error('Failed to rename movie:', error);
+			alert('ファイル名の変更に失敗しました。詳細はコンソールを確認してください。');
+		} finally {
+			renamingInProgress = false;
+		}
+	};
+	
+	// 動画ファイルを削除する
+	const deleteMovie = async () => {
+		try {
+			deletingInProgress = true;
+			
+			const response = await fetch('/api/delete-movie', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					fileName: selectedMovie
+				})
+			});
+			
+			const result = await response.json();
+			
+			if (response.ok) {
+				// デッキに読み込まれている場合はクリア
+				if (decks[0].movie === selectedMovie) {
+					decks[0].movie = "";
+					decks[0].playing = false;
+					decks[0].length = undefined;
+					decks[0].position = undefined;
+					sendDeckState();
+				}
+				if (decks[1].movie === selectedMovie) {
+					decks[1].movie = "";
+					decks[1].playing = false;
+					decks[1].length = undefined;
+					decks[1].position = undefined;
+					sendDeckState();
+				}
+				
+				// リストを更新
+				await getMovieList();
+				renameModalOpen = false;
+				showDeleteConfirm = false;
+			} else {
+				alert(`エラー: ${result.error}`);
+			}
+		} catch (error) {
+			console.error('Failed to delete movie:', error);
+			alert('ファイルの削除に失敗しました。詳細はコンソールを確認してください。');
+		} finally {
+			deletingInProgress = false;
+		}
 	};
 </script>
 
@@ -229,7 +336,13 @@
 						</button>
 					</td>
 					<td>
-						{movie}
+						<span 
+							class="truncate max-w-xs cursor-pointer hover:bg-base-200 px-2 py-1 rounded"
+							ondblclick={() => openRenameModal(movie)}
+							title="ダブルクリックして名前を変更"
+						>
+							{movie}
+						</span>
 					</td>
 					<td>
 						<button
@@ -293,3 +406,101 @@
 		</div>
 	</div>
 </div>
+
+<!-- 名前変更モーダル -->
+{#if renameModalOpen}
+<div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onclick={(e) => {
+	// モーダル外をクリックした場合は閉じる
+	if (e.target === e.currentTarget) renameModalOpen = false;
+}}>
+	<div class="bg-base-100 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+		{#if showDeleteConfirm}
+			<!-- 削除確認画面 -->
+			<h3 class="font-bold text-lg mb-4 text-error">ファイルを削除しますか？</h3>
+			<div class="py-2">
+				<p class="mb-4">「{selectedMovie}」を削除します。この操作は元に戻せません。</p>
+				<div class="bg-base-200 p-3 rounded-lg text-sm mb-2">
+					<p class="font-semibold">注意:</p>
+					<ul class="list-disc list-inside">
+						<li>デッキに読み込まれている場合、デッキからも削除されます</li>
+						<li>ファイルは完全に削除され、復元できません</li>
+					</ul>
+				</div>
+			</div>
+			<div class="modal-action">
+				<button 
+					class="btn btn-ghost btn-sm" 
+					onclick={() => showDeleteConfirm = false}
+					disabled={deletingInProgress}
+				>
+					キャンセル
+				</button>
+				<button 
+					class="btn btn-error btn-sm" 
+					onclick={deleteMovie}
+					disabled={deletingInProgress}
+				>
+					{#if deletingInProgress}
+						<span class="loading loading-spinner loading-xs"></span>
+						削除中...
+					{:else}
+						削除する
+					{/if}
+				</button>
+			</div>
+		{:else}
+			<!-- 名前変更画面 -->
+			<h3 class="font-bold text-lg mb-4">ファイル名の変更</h3>
+			<div class="py-2">
+				<input 
+					type="text" 
+					class="input input-bordered w-full" 
+					bind:value={newMovieName}
+					placeholder="新しいファイル名を入力"
+					autofocus
+					onkeydown={(e) => {
+						if (e.key === 'Enter' && newMovieName && newMovieName !== selectedMovie) {
+							renameMovie();
+						} else if (e.key === 'Escape') {
+							renameModalOpen = false;
+						}
+					}}
+				/>
+				<p class="text-xs text-base-content/70 mt-2">元のファイル名: {selectedMovie}</p>
+			</div>
+			<div class="modal-action flex justify-between">
+				<button 
+					class="btn btn-error btn-sm" 
+					onclick={() => showDeleteConfirm = true}
+					disabled={renamingInProgress}
+				>
+					削除
+				</button>
+				
+				<div>
+					<button 
+						class="btn btn-ghost btn-sm" 
+						onclick={() => renameModalOpen = false}
+						disabled={renamingInProgress}
+					>
+						キャンセル
+					</button>
+					<button 
+						class="btn btn-primary btn-sm ml-2" 
+						onclick={renameMovie}
+						disabled={!newMovieName || newMovieName === selectedMovie || renamingInProgress}
+					>
+						{#if renamingInProgress}
+							<span class="loading loading-spinner loading-xs"></span>
+							処理中...
+						{:else}
+							変更
+						{/if}
+					</button>
+				</div>
+			</div>
+		{/if}
+		
+	</div>
+</div>
+{/if}
