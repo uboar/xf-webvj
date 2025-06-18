@@ -29,6 +29,25 @@
 			event: (ws, body) => {
 				if (body) {
 					decks = body as DeckType[];
+					// デッキの透明度をUIに反映
+					if (decks[0]?.opacity !== undefined) {
+						deck1Opacity = Math.round(decks[0].opacity * 100);
+					}
+					if (decks[1]?.opacity !== undefined) {
+						deck2Opacity = Math.round(decks[1].opacity * 100);
+					}
+				}
+			}
+		});
+		wsClient.attachEvent({
+			to: 'dashboard',
+			function: 'opacity-state-sync',
+			event: (ws, body) => {
+				if (body) {
+					const opacityState = body as { deck1BaseOpacity: number; deck2BaseOpacity: number; crossfadeValue: number };
+					deck1Opacity = Math.round(opacityState.deck1BaseOpacity * 100);
+					deck2Opacity = Math.round(opacityState.deck2BaseOpacity * 100);
+					xfd = Math.round(opacityState.crossfadeValue * 100);
 				}
 			}
 		});
@@ -47,17 +66,25 @@
 	const sendXFD = () => {
 		wsClient.send({
 			to: 'server',
-			function: 'update-xfd',
-			body: { opacity: xfd * 0.01 }
+			function: 'update-opacity',
+			body: { type: 'crossfade', opacity: xfd * 0.01 }
 		});
 	};
 
 	const sendDeckOpacity = (deckIndex: number, opacity: number) => {
+		// デッキの状態も更新
+		if (decks[deckIndex]) {
+			decks[deckIndex].opacity = opacity * 0.01;
+		}
+		
 		wsClient.send({
 			to: 'server',
-			function: 'update-deck-opacity',
-			body: { deckIndex, opacity: opacity * 0.01 }
+			function: 'update-opacity',
+			body: { type: 'deck', deckIndex, opacity: opacity * 0.01 }
 		});
+		
+		// デッキ状態も送信して同期を保つ
+		sendDeckState();
 	};
 	const getMovieList = async () => {
 		const res = await fetch('/api/get-movie-list');

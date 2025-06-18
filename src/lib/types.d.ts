@@ -20,7 +20,14 @@ export type WSMessage = {
   body?: object
 }
 
+export type OpacityState = {
+  deck1BaseOpacity: number
+  deck2BaseOpacity: number
+  crossfadeValue: number
+}
+
 export type OpacityControlMessage = {
-  deckIndex: number
+  type: 'deck' | 'crossfade'
+  deckIndex?: number
   opacity: number
 }

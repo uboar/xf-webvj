@@ -22,6 +22,13 @@ let decksSrvState: DeckType[] = [
   }
 ]
 
+// 統合された透明度状態管理
+let opacityState = {
+  deck1BaseOpacity: 1.0,
+  deck2BaseOpacity: 1.0,
+  crossfadeValue: 0.5
+}
+
 const handle = (message: WSMessage) => {
   if (message.to === "server") {
     switch (message.function) {
@@ -57,19 +64,42 @@ const handle = (message: WSMessage) => {
           body: decksSrvState
         })
         break;
-      case "update-xfd":
-        send({
-          to: "output",
-          function: "update-xfd",
-          body: message.body
-        })
-        break;
-      case "update-deck-opacity":
-        send({
-          to: "output",
-          function: "update-deck-opacity",
-          body: message.body
-        })
+      case "update-opacity":
+        if (message.body) {
+          const opacityMsg = message.body as { type: string; deckIndex?: number; opacity: number };
+          
+          // 透明度状態を更新
+          if (opacityMsg.type === 'deck' && opacityMsg.deckIndex !== undefined) {
+            if (opacityMsg.deckIndex === 0) {
+              opacityState.deck1BaseOpacity = opacityMsg.opacity;
+            } else if (opacityMsg.deckIndex === 1) {
+              opacityState.deck2BaseOpacity = opacityMsg.opacity;
+            }
+          } else if (opacityMsg.type === 'crossfade') {
+            opacityState.crossfadeValue = opacityMsg.opacity;
+          }
+          
+          // 最終透明度を計算
+          const finalOpacities = {
+            deck1: opacityState.deck1BaseOpacity,
+            deck2: opacityState.deck2BaseOpacity * opacityState.crossfadeValue,
+            opacityState: opacityState
+          };
+          
+          // 出力画面に送信
+          send({
+            to: "output",
+            function: "update-opacity",
+            body: finalOpacities
+          });
+          
+          // ダッシュボードにも状態を同期
+          send({
+            to: "dashboard",
+            function: "opacity-state-sync",
+            body: opacityState
+          });
+        }
         break;
     }
   }

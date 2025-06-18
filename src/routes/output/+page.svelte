@@ -20,16 +20,9 @@
 		});
 		wsClient.attachEvent({
 			to: 'output',
-			function: 'opacity-xfd',
+			function: 'update-opacity',
 			event: (ws, body) => {
-				updateOpacityXfd(body as { opacity: number });
-			}
-		});
-		wsClient.attachEvent({
-			to: 'output',
-			function: 'update-deck-opacity',
-			event: (ws, body) => {
-				updateDeckOpacity(body as { deckIndex: number; opacity: number });
+				updateUnifiedOpacity(body as { deck1: number; deck2: number; opacityState: any });
 			}
 		});
 		wsClient.attachEvent({
@@ -75,13 +68,13 @@
 		}
 	};
 
-	const updateOpacityXfd = (data: { opacity: number }) => {
-		deckElement[1].style.opacity = data.opacity.toString();
-	};
-
-	const updateDeckOpacity = (data: { deckIndex: number; opacity: number }) => {
-		if (data.deckIndex >= 0 && data.deckIndex < deckElement.length) {
-			deckElement[data.deckIndex].style.opacity = data.opacity.toString();
+	const updateUnifiedOpacity = (data: { deck1: number; deck2: number; opacityState: any }) => {
+		if (deckElement[0] && deckElement[1]) {
+			// 統合されたイベントから直接最終透明度を適用
+			deckElement[0].style.opacity = data.deck1.toString();
+			deckElement[1].style.opacity = data.deck2.toString();
+			
+			console.log('Opacity updated:', { deck1: data.deck1, deck2: data.deck2 });
 		}
 	};
 
