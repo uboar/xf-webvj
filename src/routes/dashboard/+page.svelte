@@ -5,7 +5,7 @@
 	import { WSClientConnection } from '$lib/ws-client';
 
 	let movieList: string[] = $state([]);
-	let wsClient: WSClientConnection;
+	let wsClient: WSClientConnection = $state();
 
 	let downloadMovie: DownloadMovieRequest = {
 		url: '',
@@ -16,7 +16,9 @@
 
 	let decks: DeckType[] = $state([]);
 
-	let xfd = 50;
+	let xfd = $state(50);
+	let deck1Opacity = $state(100);
+	let deck2Opacity = $state(100);
 
 	onMount(async () => {
 		getMovieList();
@@ -49,6 +51,14 @@
 			body: { opacity: xfd * 0.01 }
 		});
 	};
+
+	const sendDeckOpacity = (deckIndex: number, opacity: number) => {
+		wsClient.send({
+			to: 'server',
+			function: 'update-deck-opacity',
+			body: { deckIndex, opacity: opacity * 0.01 }
+		});
+	};
 	const getMovieList = async () => {
 		const res = await fetch('/api/get-movie-list');
 		movieList = await res.json();
@@ -78,14 +88,31 @@
 <div class="w-screen">
 	{#if decks.length >= 2}
 		<div class="grid grid-cols-5 gap-4">
-			<Deck
-				bind:deckInfo={decks[0]}
-				{wsClient}
-				senddeck={() => {
-					sendDeckState();
-				}}
-			></Deck>
+			<div class="col-span-2">
+				<Deck
+					bind:deckInfo={decks[0]}
+					{wsClient}
+					senddeck={() => {
+						sendDeckState();
+					}}
+				></Deck>
+				<div class="p-4 border-t border-base-300">
+					<div class="text-center text-sm mb-2">Deck 1 Opacity</div>
+					<input
+						type="range"
+						min="0"
+						max="100"
+						class="range range-sm w-full"
+						bind:value={deck1Opacity}
+						oninput={() => {
+							sendDeckOpacity(0, deck1Opacity);
+						}}
+					/>
+					<div class="text-center text-xs mt-1">{deck1Opacity}%</div>
+				</div>
+			</div>
 			<div class="py-4">
+				<div class="text-center text-sm mb-2">Crossfade</div>
 				<input
 					type="range"
 					min="0"
@@ -97,13 +124,29 @@
 					}}
 				/>
 			</div>
-			<Deck
-				bind:deckInfo={decks[1]}
-				{wsClient}
-				senddeck={() => {
-					sendDeckState();
-				}}
-			></Deck>
+			<div class="col-span-2">
+				<Deck
+					bind:deckInfo={decks[1]}
+					{wsClient}
+					senddeck={() => {
+						sendDeckState();
+					}}
+				></Deck>
+				<div class="p-4 border-t border-base-300">
+					<div class="text-center text-sm mb-2">Deck 2 Opacity</div>
+					<input
+						type="range"
+						min="0"
+						max="100"
+						class="range range-sm w-full"
+						bind:value={deck2Opacity}
+						oninput={() => {
+							sendDeckOpacity(1, deck2Opacity);
+						}}
+					/>
+					<div class="text-center text-xs mt-1">{deck2Opacity}%</div>
+				</div>
+			</div>
 		</div>
 	{/if}
 

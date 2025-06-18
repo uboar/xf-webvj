@@ -18,7 +18,7 @@ export class WSClientConnection {
       this.ws.onmessage = (event) => {
         const req = JSON.parse(event.data) as WSMessage
         this.events.forEach((val) => {
-          if ((val.to === req.to) && (val.function === val.function)) {
+          if ((val.to === req.to) && (val.function === req.function)) {
             val.event(this, req.body)
           }
         })

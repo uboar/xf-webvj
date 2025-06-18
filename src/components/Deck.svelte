@@ -13,9 +13,9 @@
 	} = $props();
 
 	let deckBuffer = $derived(deckInfo);
-	let currentBPM = 180;
-	let baseBPM = 180;
-	let cueStartPos = 0;
+	let currentBPM = $state(180);
+	let baseBPM = $state(180);
+	let cueStartPos = $state(0);
 
 	const updateSpeed = (speed: number) => {
 		deckInfo.rate = speed;

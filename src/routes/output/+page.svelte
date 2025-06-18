@@ -9,7 +9,7 @@
 
 	onMount(async () => {
 		deckElement[0].style.opacity = '1.0';
-		deckElement[1].style.opacity = '0.5';
+		deckElement[1].style.opacity = '1.0';
 		wsClient = new WSClientConnection();
 		wsClient.attachEvent({
 			to: 'output',
@@ -23,6 +23,13 @@
 			function: 'opacity-xfd',
 			event: (ws, body) => {
 				updateOpacityXfd(body as { opacity: number });
+			}
+		});
+		wsClient.attachEvent({
+			to: 'output',
+			function: 'update-deck-opacity',
+			event: (ws, body) => {
+				updateDeckOpacity(body as { deckIndex: number; opacity: number });
 			}
 		});
 		wsClient.attachEvent({
@@ -70,6 +77,12 @@
 
 	const updateOpacityXfd = (data: { opacity: number }) => {
 		deckElement[1].style.opacity = data.opacity.toString();
+	};
+
+	const updateDeckOpacity = (data: { deckIndex: number; opacity: number }) => {
+		if (data.deckIndex >= 0 && data.deckIndex < deckElement.length) {
+			deckElement[data.deckIndex].style.opacity = data.opacity.toString();
+		}
 	};
 
 	const loadedMovie = (prefix: number) => {

@@ -12,11 +12,13 @@ let decksSrvState: DeckType[] = [
     prefix: "1",
     movie: "",
     playing: false,
+    opacity: 1.0,
   },
   {
     prefix: "2",
     movie: "",
     playing: false,
+    opacity: 1.0,
   }
 ]
 
@@ -59,6 +61,13 @@ const handle = (message: WSMessage) => {
         send({
           to: "output",
           function: "update-xfd",
+          body: message.body
+        })
+        break;
+      case "update-deck-opacity":
+        send({
+          to: "output",
+          function: "update-deck-opacity",
           body: message.body
         })
         break;
