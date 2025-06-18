@@ -21,6 +21,33 @@
 	let renamingInProgress = $state(false);
 	let deletingInProgress = $state(false);
 	let showDeleteConfirm = $state(false);
+	
+	// 検索機能用の状態
+	let searchQuery = $state('');
+	let filteredMovieList = $derived(
+		searchQuery 
+			? movieList.filter(movie => 
+				movie.toLowerCase().includes(searchQuery.toLowerCase())
+			)
+			: movieList
+	);
+	
+	// 検索語句をハイライト表示する関数
+	const highlightSearchTerm = (text: string, query: string) => {
+		if (!query) return text;
+		
+		const lowerText = text.toLowerCase();
+		const lowerQuery = query.toLowerCase();
+		const index = lowerText.indexOf(lowerQuery);
+		
+		if (index === -1) return text;
+		
+		const before = text.substring(0, index);
+		const match = text.substring(index, index + query.length);
+		const after = text.substring(index + query.length);
+		
+		return `${before}<span class="bg-warning/30 font-semibold">${match}</span>${after}`;
+	};
 
 	let decks: DeckType[] = $state([]);
 
@@ -296,11 +323,40 @@
 		</div>
 	{/if}
 
-	<div class="flex gap-4 py-2 justify-center border-y-2 border-base-300">
-		<h3 class="text-lg">Movies</h3>
-		<button class="btn btn-outline btn-info btn-sm rounded-full" onclick={()=>{getMovieList()}}>sync</button>
+	<div class="flex flex-wrap gap-4 py-2 justify-between items-center border-y-2 border-base-300 px-4">
+		<div class="flex gap-4 items-center">
+			<h3 class="text-lg">Movies</h3>
+			<button class="btn btn-outline btn-info btn-sm rounded-full" onclick={()=>{getMovieList()}}>sync</button>
+		</div>
+		<div class="flex-grow max-w-md">
+			<div class="relative">
+				<input 
+					type="text" 
+					class="input input-bordered w-full pr-10" 
+					placeholder="動画を検索..." 
+					bind:value={searchQuery}
+				/>
+				{#if searchQuery}
+					<button 
+						class="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs btn-circle"
+						onclick={() => searchQuery = ''}
+						title="検索をクリア"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+						</svg>
+					</button>
+				{:else}
+					<div class="absolute right-3 top-1/2 -translate-y-1/2 opacity-50">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+							<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+						</svg>
+					</div>
+				{/if}
+			</div>
+		</div>
 	</div>
-	<table class="table w-full border-b-2 border-base-300">
+	<table class="table table-sm w-full border-b-2 border-base-300">
 		<thead>
 			<tr>
 				<th>Deck 1</th>
@@ -309,67 +365,95 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each movieList as movie}
+			{#if filteredMovieList.length === 0}
 				<tr>
-					<td>
-						<button
-							class="btn btn-outline w-full rounded-full"
-							aria-label="deck1_load"
-							onclick={() => {
-								loadMovie(0, movie);
-							}}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-								stroke="currentColor"
-								class="w-6"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-								/>
-							</svg>
-						</button>
-					</td>
-					<td>
-						<span 
-							class="truncate max-w-xs cursor-pointer hover:bg-base-200 px-2 py-1 rounded"
-							ondblclick={() => openRenameModal(movie)}
-							title="ダブルクリックして名前を変更"
-						>
-							{movie}
-						</span>
-					</td>
-					<td>
-						<button
-							class="btn btn-outline w-full rounded-full"
-							aria-label="deck2_load"
-							onclick={() => {
-								loadMovie(1, movie);
-							}}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-								stroke="currentColor"
-								class="w-6"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-								/>
-							</svg>
-						</button>
+					<td colspan="3" class="text-center py-8 text-base-content/70">
+						{#if searchQuery}
+							<div class="flex flex-col items-center gap-2">
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+									<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+								</svg>
+								<p>「{searchQuery}」に一致する動画が見つかりません</p>
+								<button class="btn btn-sm btn-ghost" onclick={() => searchQuery = ''}>検索をクリア</button>
+							</div>
+						{:else}
+							<div class="flex flex-col items-center gap-2">
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+									<path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+								</svg>
+								<p>動画がありません</p>
+								<p class="text-sm">下部の「Movie Download」から動画をダウンロードしてください</p>
+							</div>
+						{/if}
 					</td>
 				</tr>
-			{/each}
+			{:else}
+				{#each filteredMovieList as movie}
+					<tr>
+						<td>
+							<button
+								class="btn btn-sm btn-outline w-full rounded-full"
+								aria-label="deck1_load"
+								onclick={() => {
+									loadMovie(0, movie);
+								}}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									class="w-6"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+									/>
+								</svg>
+							</button>
+						</td>
+						<td>
+							<span 
+								class="truncate max-w-xs cursor-pointer hover:bg-base-200 px-2 py-1 rounded"
+								ondblclick={() => openRenameModal(movie)}
+								title="ダブルクリックして名前を変更"
+							>
+								{#if searchQuery}
+									{@html highlightSearchTerm(movie, searchQuery)}
+								{:else}
+									{movie}
+								{/if}
+							</span>
+						</td>
+						<td>
+							<button
+								class="btn btn-sm btn-outline w-full rounded-full"
+								aria-label="deck2_load"
+								onclick={() => {
+									loadMovie(1, movie);
+								}}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									class="w-6"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+									/>
+								</svg>
+							</button>
+						</td>
+					</tr>
+				{/each}
+			{/if}
 		</tbody>
 	</table>
 
