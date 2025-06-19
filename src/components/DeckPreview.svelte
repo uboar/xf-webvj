@@ -22,36 +22,67 @@
 	const initializeVideoElements = () => {
 		if (!decks || decks.length === 0) return;
 		
-		// 各デッキに対応するビデオ要素の初期化
-		videoRefs = Array(decks.length).fill(null);
-		videoSources = Array(decks.length).fill('');
-		videoLoading = Array(decks.length).fill(false);
-		
-		// 各デッキの動画ファイルをロード
-		loadVideos();
+		// 各デッキに対応するビデオ要素の初期化（一度だけ）
+		if (videoRefs.length === 0) {
+			videoRefs = Array(decks.length).fill(null);
+			videoSources = Array(decks.length).fill('');
+			videoLoading = Array(decks.length).fill(false);
+			
+			// 初回のみ全ての動画をロード
+			loadVideos();
+		}
 	};
 
-	// 動画ファイルのロード
+	// 動画ファイルのロード（すべてのデッキ）
 	const loadVideos = async () => {
 		if (!decks || decks.length === 0) return;
 
 		for (let i = 0; i < decks.length; i++) {
 			if (decks[i].movie) {
-				videoLoading[i] = true;
-				try {
-					// 動画ファイルのURLを取得
-					const response = await fetch(`/api/get-movie?video=${encodeURIComponent(decks[i].movie)}`);
-					if (response.ok) {
-						const blob = await response.blob();
-						videoSources[i] = URL.createObjectURL(blob);
-					} else {
-						console.error(`Failed to load video for deck ${i + 1}`);
-					}
-				} catch (error) {
-					console.error(`Error loading video for deck ${i + 1}:`, error);
-				} finally {
-					videoLoading[i] = false;
-				}
+				await loadSingleVideo(i, decks[i].movie);
+			}
+		}
+	};
+	
+	// 単一の動画をロード
+	const loadSingleVideo = async (deckIndex: number, movieName: string) => {
+		if (!movieName) return;
+		
+		// 既に同じ動画がロードされている場合はスキップ
+		if (videoSources[deckIndex] && previousMovieNames[deckIndex] === movieName) {
+			return;
+		}
+		
+		// 古いBlobを解放
+		if (videoSources[deckIndex]) {
+			URL.revokeObjectURL(videoSources[deckIndex]);
+		}
+		
+		videoLoading[deckIndex] = true;
+		try {
+			// 動画ファイルのURLを取得
+			const response = await fetch(`/api/get-movie?video=${encodeURIComponent(movieName)}`);
+			if (response.ok) {
+				const blob = await response.blob();
+				videoSources[deckIndex] = URL.createObjectURL(blob);
+			} else {
+				console.error(`Failed to load video for deck ${deckIndex + 1}`);
+			}
+		} catch (error) {
+			console.error(`Error loading video for deck ${deckIndex + 1}:`, error);
+		} finally {
+			videoLoading[deckIndex] = false;
+		}
+	};
+	
+	// 選択的に動画をロード（変更があった動画のみ）
+	const loadVideosSelectively = async (currentMovieNames: string[]) => {
+		if (!decks || decks.length === 0) return;
+
+		for (let i = 0; i < decks.length; i++) {
+			// 初回ロード時または動画が変更された場合のみロード
+			if (decks[i].movie && (previousMovieNames.length === 0 || previousMovieNames[i] !== decks[i].movie)) {
+				await loadSingleVideo(i, decks[i].movie);
 			}
 		}
 	};
@@ -83,9 +114,17 @@
 		});
 	};
 
-	// デッキの状態が変更されたときに呼び出される関数
+	// デッキの再生状態、位置、速度が変更されたときだけ更新
 	$effect(() => {
-		if (decks) {
+		if (decks && videoRefs.some(ref => ref !== null)) {
+			// 監視する必要のあるプロパティのみを抽出
+			const playbackStates = decks.map(deck => ({
+				playing: deck.playing,
+				position: deck.position,
+				rate: deck.rate
+			}));
+			
+			// 再生状態の更新
 			updateVideoPlayback();
 		}
 	});
@@ -103,11 +142,25 @@
 		});
 	});
 
-	// デッキの動画が変更されたときに再ロード
+	// 前回の動画ファイル名を保存
+	let previousMovieNames: string[] = [];
+	
+	// デッキの動画が変更されたときだけ再ロード
 	$effect(() => {
-		if (decks) {
-			const movieNames = decks.map(deck => deck.movie);
-			loadVideos();
+		if (decks && decks.length > 0) {
+			const currentMovieNames = decks.map(deck => deck.movie);
+			
+			// 動画ファイル名が変更されたかチェック
+			const hasMovieChanged = currentMovieNames.some((name, index) => 
+				previousMovieNames[index] !== name && name !== ''
+			);
+			
+			// 初回ロード時または動画が変更されたときだけロード
+			if (previousMovieNames.length === 0 || hasMovieChanged) {
+				// 変更があった動画だけをロード
+				loadVideosSelectively(currentMovieNames);
+				previousMovieNames = [...currentMovieNames];
+			}
 		}
 	});
 </script>
@@ -134,6 +187,10 @@
 								src={videoSources[i]}
 								class="w-full h-full object-contain"
 								preload="auto"
+								on:loadedmetadata={() => {
+									// 動画がロードされたら再生状態を同期
+									updateVideoPlayback();
+								}}
 							></video>
 						{:else}
 							<div class="absolute inset-0 flex items-center justify-center text-gray-400">
