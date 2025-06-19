@@ -39,6 +39,12 @@
 	let deck1Opacity = $state(100);
 	let deck2Opacity = $state(100);
 
+	// クロスフェーダーの調整ステップ（キーボード操作時）
+	const xfdStep = 1;
+
+	// キーボード操作中のフラグ（サーバーからの同期を一時的に無視するため）
+	let isKeyboardOperating = $state(false);
+
 	onMount(async () => {
 		getMovieList();
 		wsClient = new WSClientConnection();
@@ -62,7 +68,7 @@
 			to: 'dashboard',
 			function: 'opacity-state-sync',
 			event: (ws, body) => {
-				if (body) {
+				if (body && !isKeyboardOperating) {
 					const opacityState = body as {
 						deck1BaseOpacity: number;
 						deck2BaseOpacity: number;
@@ -88,6 +94,14 @@
 		});
 		await wsClient.connect;
 		wsClient.send({ to: 'server', function: 'get-deck-state' });
+
+		// キーボードイベントリスナーを追加
+		window.addEventListener('keydown', handleKeyDown);
+
+		// コンポーネントのアンマウント時にイベントリスナーを削除
+		return () => {
+			window.removeEventListener('keydown', handleKeyDown);
+		};
 	});
 
 	const sendDeckState = () => {
@@ -244,6 +258,36 @@
 			deletingInProgress = false;
 		}
 	};
+
+	// キーボード操作のデバウンス用タイマー
+	let keyboardDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+	// キーボードの矢印キーでクロスフェーダーを操作する
+	const handleKeyDown = (event: KeyboardEvent) => {
+		// テキスト入力フィールドでの操作は無視
+		if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+			return;
+		}
+
+		// 左矢印キー: クロスフェーダーを左に移動（値を減少）
+		if (event.key === 'ArrowLeft') {
+			event.preventDefault();
+
+			// 値を更新
+			xfd = Math.max(0, xfd - xfdStep);
+
+			sendXFD();
+		}
+		// 右矢印キー: クロスフェーダーを右に移動（値を増加）
+		else if (event.key === 'ArrowRight') {
+			event.preventDefault();
+
+			// 値を更新
+			xfd = Math.min(100, xfd + xfdStep);
+
+			sendXFD();
+		}
+	};
 </script>
 
 <svelte:head>
@@ -289,6 +333,11 @@
 						sendXFD();
 					}}
 				/>
+				<div class="mt-2 text-center text-xs opacity-70">
+					<span class="inline-block px-1">←</span>
+					<span class="inline-block">キーボードの矢印キーでも操作可能</span>
+					<span class="inline-block px-1">→</span>
+				</div>
 			</div>
 			<div class="col-span-2">
 				{#if wsClient}
@@ -319,52 +368,52 @@
 	{/if}
 
 	<div class="border-base-300 border-y-2">
-	<TabNavigation {activeTab} on:changetab={(e) => (activeTab = e.detail.tab)} />
-</div>
+		<TabNavigation {activeTab} on:changetab={(e) => (activeTab = e.detail.tab)} />
+	</div>
 
-{#if activeTab === 'movies'}
-	<MovieList
-		{movieList}
-		bind:searchQuery
-		on:loadmovie={(e) => loadMovie(e.detail.deck, e.detail.movie)}
-		on:openrenamemodal={(e) => openRenameModal(e.detail.movie)}
-		on:getmovielist={getMovieList}
-		on:changetab={(e) => (activeTab = e.detail.tab)}
-	/>
-{:else if activeTab === 'preview'}
-	{#if wsClient && decks.length >= 2}
-		<DeckPreview 
-			{decks} 
-			{wsClient} 
-			sendDeckState={() => {
-				sendDeckState();
-			}}
+	{#if activeTab === 'movies'}
+		<MovieList
+			{movieList}
+			bind:searchQuery
+			on:loadmovie={(e) => loadMovie(e.detail.deck, e.detail.movie)}
+			on:openrenamemodal={(e) => openRenameModal(e.detail.movie)}
+			on:getmovielist={getMovieList}
+			on:changetab={(e) => (activeTab = e.detail.tab)}
 		/>
+	{:else if activeTab === 'preview'}
+		{#if wsClient && decks.length >= 2}
+			<DeckPreview
+				{decks}
+				{wsClient}
+				sendDeckState={() => {
+					sendDeckState();
+				}}
+			/>
+		{:else}
+			<div class="p-4 text-center">
+				<p>デッキの情報を読み込み中...</p>
+			</div>
+		{/if}
 	{:else}
-		<div class="p-4 text-center">
-			<p>デッキの情報を読み込み中...</p>
-		</div>
+		<MovieDownload
+			{downloadMovie}
+			{downloading}
+			{movieList}
+			on:moviedownload={movieDownload}
+			on:changetab={(e) => (activeTab = e.detail.tab)}
+		/>
 	{/if}
-{:else}
-	<MovieDownload
-		{downloadMovie}
-		{downloading}
-		{movieList}
-		on:moviedownload={movieDownload}
-		on:changetab={(e) => (activeTab = e.detail.tab)}
-	/>
-{/if}
 
-<RenameModal
-	bind:renameModalOpen
-	bind:selectedMovie
-	bind:newMovieName
-	bind:renamingInProgress
-	bind:deletingInProgress
-	bind:showDeleteConfirm
-	on:renamemovie={renameMovie}
-	on:deletemovie={deleteMovie}
-	on:closemodal={() => (renameModalOpen = false)}
-	on:setshowdeleteconfirm={(e) => (showDeleteConfirm = e.detail.value)}
-/>
+	<RenameModal
+		bind:renameModalOpen
+		bind:selectedMovie
+		bind:newMovieName
+		bind:renamingInProgress
+		bind:deletingInProgress
+		bind:showDeleteConfirm
+		on:renamemovie={renameMovie}
+		on:deletemovie={deleteMovie}
+		on:closemodal={() => (renameModalOpen = false)}
+		on:setshowdeleteconfirm={(e) => (showDeleteConfirm = e.detail.value)}
+	/>
 </div>
