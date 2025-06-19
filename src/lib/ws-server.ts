@@ -28,6 +28,8 @@ let opacityState = {
   deck2BaseOpacity: 1.0,
   crossfadeValue: 0.5
 }
+// 動画読み込み状態の追跡
+let videoLoadingStates = [false, false];
 
 const handle = (message: WSMessage) => {
   if (message.to === "server") {
@@ -105,6 +107,19 @@ const handle = (message: WSMessage) => {
           });
         }
         break;
+      case "update-loading-state":
+        if (message.body) {
+          const loadingState = message.body as { loadingStates: boolean[] };
+          videoLoadingStates = loadingState.loadingStates;
+          
+          // ダッシュボードに読み込み状態を通知
+          send({
+            to: "dashboard",
+            function: "video-loading-status",
+            body: { loadingStates: videoLoadingStates }
+          });
+        }
+        break;
     }
   }
 }
@@ -129,7 +144,14 @@ export const webSocketServer: webSocketServerType = {
         console.error('WebSocket Error:', error);
       })
     });
-
+    
+    // 初期状態でダッシュボードに読み込み状態を送信
+    send({
+      to: "dashboard",
+      function: "video-loading-status",
+      body: { loadingStates: videoLoadingStates }
+    });
+    
     console.log('WebSocket Server Launched');
     return wss;
   }

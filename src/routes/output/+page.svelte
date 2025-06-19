@@ -6,6 +6,9 @@
 	let deckElement: HTMLVideoElement[] = [];
 	let decks: DeckType[] = [];
 	let wsClient: WSClientConnection;
+	
+	// 動画読み込み状態の追跡
+	let loadingStates = [false, false];
 
 	onMount(async () => {
 		deckElement[0].style.opacity = '1.0';
@@ -38,17 +41,45 @@
 		wsClient.send({ to: 'server', function: 'get-deck-state' });
 	});
 
+	// ロード状態をダッシュボードに通知する
+	const sendLoadingState = () => {
+		if (wsClient) {
+			wsClient.send({
+				to: 'server',
+				function: 'update-loading-state',
+				body: { loadingStates }
+			});
+		}
+	};
+	
 	const updateDeck = (resDeck: DeckType[]) => {
 		if (resDeck.length >= 2 && decks.length == 0) {
 			decks = resDeck;
-			deckElement[0].src = '/api/get-movie?video=' + encodeURIComponent(decks[0].movie);
-			deckElement[1].src = '/api/get-movie?video=' + encodeURIComponent(decks[1].movie);
+			
+			// 初期ロード時に動画があれば読み込み状態を設定
+			if (decks[0].movie) {
+				loadingStates[0] = true;
+				sendLoadingState();
+				deckElement[0].src = '/api/get-movie?video=' + encodeURIComponent(decks[0].movie);
+			}
+			
+			if (decks[1].movie) {
+				loadingStates[1] = true;
+				sendLoadingState();
+				deckElement[1].src = '/api/get-movie?video=' + encodeURIComponent(decks[1].movie);
+			}
 		}
 
 		if (resDeck.length >= 2) {
 			for (let i = 0; i < 2; i++) {
-				if (resDeck[i].movie != decks[i].movie)
+				if (resDeck[i].movie != decks[i].movie) {
+					// 新しい動画が読み込まれる場合、読み込み状態を設定
+					if (resDeck[i].movie) {
+						loadingStates[i] = true;
+						sendLoadingState();
+					}
 					deckElement[i].src = '/api/get-movie?video=' + encodeURIComponent(resDeck[i].movie);
+				}
 				if (resDeck[i].position != undefined) {
 					deckElement[i].currentTime = resDeck[i].position!;
 				}
@@ -109,6 +140,10 @@
 		deckElement[prefix].currentTime = 0;
 		deckElement[prefix].playbackRate = 1.0;
 
+		// 読み込み完了を設定
+		loadingStates[prefix] = false;
+		sendLoadingState();
+
 		wsClient.send({ to: 'server', function: 'update-movie-state', body: decks });
 	};
 
@@ -152,6 +187,12 @@
 		onended={() => {
 			handleVideoEnded(0);
 		}}
+		onerror={() => {
+			// 読み込みエラー時も状態をリセット
+			loadingStates[0] = false;
+			sendLoadingState();
+			console.error('Deck 1: Video loading error');
+		}}
 	></video>
 	<video
 		bind:this={deckElement[1]}
@@ -166,6 +207,12 @@
 		}}
 		onended={() => {
 			handleVideoEnded(1);
+		}}
+		onerror={() => {
+			// 読み込みエラー時も状態をリセット
+			loadingStates[1] = false;
+			sendLoadingState();
+			console.error('Deck 2: Video loading error');
 		}}
 	></video>
 </div>

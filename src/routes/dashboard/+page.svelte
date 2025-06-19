@@ -41,6 +41,10 @@
 
 	// クロスフェーダーの調整ステップ（キーボード操作時）
 	const xfdStep = 1;
+	
+	
+	// 動画読み込み状態
+	let videoLoadingStates = $state([false, false]);
 
 	onMount(async () => {
 		getMovieList();
@@ -89,6 +93,20 @@
 				}
 			}
 		});
+		
+		
+		// 動画読み込み状態を監視
+		wsClient.attachEvent({
+			to: 'dashboard',
+			function: 'video-loading-status',
+			event: (ws, body) => {
+				if (body) {
+					const status = body as { loadingStates: boolean[] };
+					videoLoadingStates = status.loadingStates;
+				}
+			}
+		});
+		
 		await wsClient.connect;
 		wsClient.send({ to: 'server', function: 'get-deck-state' });
 
@@ -293,13 +311,24 @@
 		<div class="grid grid-cols-5 gap-4">
 			<div class="col-span-2">
 				{#if wsClient}
-					<Deck
-						bind:deckInfo={decks[0]}
-						{wsClient}
-						senddeck={() => {
-							sendDeckState();
-						}}
-					></Deck>
+					<div class="relative">
+						<Deck
+							bind:deckInfo={decks[0]}
+							{wsClient}
+							senddeck={() => {
+								sendDeckState();
+							}}
+						></Deck>
+						
+						{#if videoLoadingStates[0]}
+							<div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-10">
+								<div class="text-center">
+									<div class="loading loading-spinner loading-lg text-warning mb-2"></div>
+									<div class="text-warning font-bold">動画読み込み中...</div>
+								</div>
+							</div>
+						{/if}
+					</div>
 				{/if}
 				<div class="border-base-300 border-t p-4">
 					<div class="mb-2 text-center text-sm">Deck 1 Opacity</div>
@@ -336,13 +365,24 @@
 			</div>
 			<div class="col-span-2">
 				{#if wsClient}
-					<Deck
-						bind:deckInfo={decks[1]}
-						{wsClient}
-						senddeck={() => {
-							sendDeckState();
-						}}
-					></Deck>
+					<div class="relative">
+						<Deck
+							bind:deckInfo={decks[1]}
+							{wsClient}
+							senddeck={() => {
+								sendDeckState();
+							}}
+						></Deck>
+						
+						{#if videoLoadingStates[1]}
+							<div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-10">
+								<div class="text-center">
+									<div class="loading loading-spinner loading-lg text-warning mb-2"></div>
+									<div class="text-warning font-bold">動画読み込み中...</div>
+								</div>
+							</div>
+						{/if}
+					</div>
 				{/if}
 				<div class="border-base-300 border-t p-4">
 					<div class="mb-2 text-center text-sm">Deck 2 Opacity</div>
