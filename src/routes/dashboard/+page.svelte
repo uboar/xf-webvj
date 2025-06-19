@@ -7,6 +7,7 @@
 	import MovieDownload from '../../components/MovieDownload.svelte';
 	import RenameModal from '../../components/RenameModal.svelte';
 	import TabNavigation from '../../components/TabNavigation.svelte';
+	import DeckPreview from '../../components/DeckPreview.svelte';
 
 	let movieList: string[] = $state([]);
 	let wsClient: WSClientConnection | undefined = $state();
@@ -330,6 +331,14 @@
 		on:getmovielist={getMovieList}
 		on:changetab={(e) => (activeTab = e.detail.tab)}
 	/>
+{:else if activeTab === 'preview'}
+	{#if wsClient && decks.length >= 2}
+		<DeckPreview {decks} {wsClient} />
+	{:else}
+		<div class="p-4 text-center">
+			<p>デッキの情報を読み込み中...</p>
+		</div>
+	{/if}
 {:else}
 	<MovieDownload
 		{downloadMovie}
