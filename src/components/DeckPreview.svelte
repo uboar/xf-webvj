@@ -230,16 +230,6 @@
 							</div>
 						{/if}
 					</div>
-					
-					<div class="mt-2 text-sm">
-						<p class="truncate"><strong>ファイル名:</strong> {deck.movie}</p>
-						<p><strong>再生状態:</strong> {deck.playing ? '再生中' : '停止'}</p>
-						<p><strong>再生速度:</strong> {deck.rate?.toFixed(2) || '1.00'}x</p>
-						<p><strong>不透明度:</strong> {deck.opacity !== undefined ? `${deck.opacity}%` : '100%'}</p>
-						{#if deck.position !== undefined && deck.length !== undefined}
-							<p><strong>再生位置:</strong> {formatTime(deck.position)} / {formatTime(deck.length)}</p>
-						{/if}
-					</div>
 				{:else}
 					<div class="aspect-video bg-gray-800 rounded-md flex items-center justify-center text-gray-400">
 						動画がロードされていません
