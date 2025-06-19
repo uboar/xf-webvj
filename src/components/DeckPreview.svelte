@@ -5,10 +5,12 @@
 
 	let {
 		decks = $bindable(),
-		wsClient = $bindable()
+		wsClient = $bindable(),
+		sendDeckState = $bindable()
 	}: {
 		decks: DeckType[];
 		wsClient: WSClientConnection;
+		sendDeckState?: () => void;
 	} = $props();
 
 	// プレビュー用のビデオ要素への参照
@@ -84,6 +86,32 @@
 			if (decks[i].movie && (previousMovieNames.length === 0 || previousMovieNames[i] !== decks[i].movie)) {
 				await loadSingleVideo(i, decks[i].movie);
 			}
+		}
+	};
+
+	// 動画が最後まで再生されたときの処理
+	const handleVideoEnded = (deckIndex: number) => {
+		if (!decks || deckIndex >= decks.length) return;
+		
+		// デッキの再生状態を停止に設定
+		if (decks[deckIndex].playing) {
+			decks[deckIndex].playing = false;
+			
+			// 親コンポーネントに状態変更を通知
+			if (sendDeckState) {
+				sendDeckState();
+			} else {
+				// sendDeckState関数が提供されていない場合はWebSocketで直接送信
+				if (wsClient) {
+					wsClient.send({
+						to: 'output',
+						function: 'update-deck-state',
+						body: decks
+					});
+				}
+			}
+			
+			console.log(`Deck ${decks[deckIndex].prefix} playback ended, stopped automatically.`);
 		}
 	};
 
@@ -190,6 +218,10 @@
 								on:loadedmetadata={() => {
 									// 動画がロードされたら再生状態を同期
 									updateVideoPlayback();
+								}}
+								on:ended={() => {
+									// 動画が最後まで再生されたら停止状態に更新
+									handleVideoEnded(i);
 								}}
 							></video>
 						{:else}

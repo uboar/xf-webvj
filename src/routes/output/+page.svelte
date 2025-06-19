@@ -117,6 +117,19 @@
 
 		wsClient.send({ to: 'server', function: 'update-movie-state', body: decks });
 	};
+	
+	// 動画が最後まで再生されたときの処理
+	const handleVideoEnded = (prefix: number) => {
+		// 再生状態を停止に設定
+		if (decks[prefix].playing) {
+			decks[prefix].playing = false;
+			
+			// サーバーに状態変更を通知
+			wsClient.send({ to: 'server', function: 'update-movie-state', body: decks });
+			
+			console.log(`Output: Deck ${decks[prefix].prefix} playback ended, stopped automatically.`);
+		}
+	};
 </script>
 
 
@@ -136,6 +149,9 @@
 		ontimeupdate={() => {
 			timeUpdate(0);
 		}}
+		onended={() => {
+			handleVideoEnded(0);
+		}}
 	></video>
 	<video
 		bind:this={deckElement[1]}
@@ -147,6 +163,9 @@
 		}}
 		ontimeupdate={() => {
 			timeUpdate(1);
+		}}
+		onended={() => {
+			handleVideoEnded(1);
 		}}
 	></video>
 </div>

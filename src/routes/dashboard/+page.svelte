@@ -333,7 +333,13 @@
 	/>
 {:else if activeTab === 'preview'}
 	{#if wsClient && decks.length >= 2}
-		<DeckPreview {decks} {wsClient} />
+		<DeckPreview 
+			{decks} 
+			{wsClient} 
+			sendDeckState={() => {
+				sendDeckState();
+			}}
+		/>
 	{:else}
 		<div class="p-4 text-center">
 			<p>デッキの情報を読み込み中...</p>
