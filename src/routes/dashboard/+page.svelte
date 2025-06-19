@@ -42,9 +42,6 @@
 	// クロスフェーダーの調整ステップ（キーボード操作時）
 	const xfdStep = 1;
 
-	// キーボード操作中のフラグ（サーバーからの同期を一時的に無視するため）
-	let isKeyboardOperating = $state(false);
-
 	onMount(async () => {
 		getMovieList();
 		wsClient = new WSClientConnection();
@@ -68,7 +65,7 @@
 			to: 'dashboard',
 			function: 'opacity-state-sync',
 			event: (ws, body) => {
-				if (body && !isKeyboardOperating) {
+				if (body) {
 					const opacityState = body as {
 						deck1BaseOpacity: number;
 						deck2BaseOpacity: number;
@@ -259,8 +256,6 @@
 		}
 	};
 
-	// キーボード操作のデバウンス用タイマー
-	let keyboardDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// キーボードの矢印キーでクロスフェーダーを操作する
 	const handleKeyDown = (event: KeyboardEvent) => {
