@@ -3,9 +3,13 @@
 	import Deck from '../../components/Deck.svelte';
 	import type { DeckType, DownloadMovieRequest } from '$lib/types';
 	import { WSClientConnection } from '$lib/ws-client';
+	import MovieList from '../../components/MovieList.svelte';
+	import MovieDownload from '../../components/MovieDownload.svelte';
+	import RenameModal from '../../components/RenameModal.svelte';
+	import TabNavigation from '../../components/TabNavigation.svelte';
 
 	let movieList: string[] = $state([]);
-	let wsClient: WSClientConnection = $state();
+	let wsClient: WSClientConnection | undefined = $state();
 
 	let downloadMovie: DownloadMovieRequest = {
 		url: '',
@@ -24,31 +28,9 @@
 
 	// 検索機能用の状態
 	let searchQuery = $state('');
-	let filteredMovieList = $derived(
-		searchQuery
-			? movieList.filter((movie) => movie.toLowerCase().includes(searchQuery.toLowerCase()))
-			: movieList
-	);
 
 	// タブ切り替え用の状態
 	let activeTab = $state('movies'); // 'movies' または 'download'
-
-	// 検索語句をハイライト表示する関数
-	const highlightSearchTerm = (text: string, query: string) => {
-		if (!query) return text;
-
-		const lowerText = text.toLowerCase();
-		const lowerQuery = query.toLowerCase();
-		const index = lowerText.indexOf(lowerQuery);
-
-		if (index === -1) return text;
-
-		const before = text.substring(0, index);
-		const match = text.substring(index, index + query.length);
-		const after = text.substring(index + query.length);
-
-		return `${before}<span class="bg-warning/30 font-semibold">${match}</span>${after}`;
-	};
 
 	let decks: DeckType[] = $state([]);
 
@@ -108,6 +90,7 @@
 	});
 
 	const sendDeckState = () => {
+		if (!wsClient) return;
 		wsClient.send({
 			to: 'server',
 			function: 'update-deck-state',
@@ -116,6 +99,7 @@
 	};
 
 	const sendXFD = () => {
+		if (!wsClient) return;
 		wsClient.send({
 			to: 'server',
 			function: 'update-opacity',
@@ -124,6 +108,7 @@
 	};
 
 	const sendDeckOpacity = (deckIndex: number, opacity: number) => {
+		if (!wsClient) return;
 		// デッキの状態も更新（透明度のみ）
 		if (decks[deckIndex]) {
 			decks[deckIndex].opacity = opacity * 0.01;
@@ -267,13 +252,15 @@
 	{#if decks.length >= 2}
 		<div class="grid grid-cols-5 gap-4">
 			<div class="col-span-2">
-				<Deck
-					bind:deckInfo={decks[0]}
-					{wsClient}
-					senddeck={() => {
-						sendDeckState();
-					}}
-				></Deck>
+				{#if wsClient}
+					<Deck
+						bind:deckInfo={decks[0]}
+						{wsClient}
+						senddeck={() => {
+							sendDeckState();
+						}}
+					></Deck>
+				{/if}
 				<div class="border-base-300 border-t p-4">
 					<div class="mb-2 text-center text-sm">Deck 1 Opacity</div>
 					<input
@@ -303,13 +290,15 @@
 				/>
 			</div>
 			<div class="col-span-2">
-				<Deck
-					bind:deckInfo={decks[1]}
-					{wsClient}
-					senddeck={() => {
-						sendDeckState();
-					}}
-				></Deck>
+				{#if wsClient}
+					<Deck
+						bind:deckInfo={decks[1]}
+						{wsClient}
+						senddeck={() => {
+							sendDeckState();
+						}}
+					></Deck>
+				{/if}
 				<div class="border-base-300 border-t p-4">
 					<div class="mb-2 text-center text-sm">Deck 2 Opacity</div>
 					<input
@@ -329,406 +318,38 @@
 	{/if}
 
 	<div class="border-base-300 border-y-2">
-		<!-- タブ切り替えUI -->
-		<div class="tabs tabs-box tabs-sm my-2 justify-center bg-transparent">
-			<button
-				class={`tab ${activeTab === 'movies' ? 'tab-active' : ''}`}
-				onclick={() => (activeTab = 'movies')}
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-					stroke="currentColor"
-					class="mr-2 h-5 w-5"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"
-					/>
-				</svg>
-				動画リスト
-			</button>
-			<button
-				class={`tab ${activeTab === 'download' ? 'tab-active' : ''}`}
-				onclick={() => (activeTab = 'download')}
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-					stroke="currentColor"
-					class="mr-2 h-5 w-5"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-					/>
-				</svg>
-				動画ダウンロード
-			</button>
-		</div>
-
-		{#if activeTab === 'movies'}
-			<!-- 動画リスト表示時のヘッダー -->
-			<div class="flex flex-wrap items-center justify-between gap-4 px-4 py-2">
-				<div class="flex items-center gap-4">
-					<h3 class="text-md">Movies</h3>
-					<button
-						class="btn btn-outline btn-info btn-xs rounded-full"
-						onclick={() => {
-							getMovieList();
-						}}>sync</button
-					>
-				</div>
-				<div class="max-w-md flex-grow">
-					<div class="relative">
-						<input
-							type="text"
-							class="input input-bordered w-full pr-10"
-							placeholder="動画を検索..."
-							bind:value={searchQuery}
-						/>
-						{#if searchQuery}
-							<button
-								class="btn btn-ghost btn-xs btn-circle absolute top-1/2 right-2 -translate-y-1/2"
-								onclick={() => (searchQuery = '')}
-								title="検索をクリア"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="h-4 w-4"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-								</svg>
-							</button>
-						{:else}
-							<div class="absolute top-1/2 right-3 -translate-y-1/2 opacity-50">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="h-5 w-5"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-									/>
-								</svg>
-							</div>
-						{/if}
-					</div>
-				</div>
-			</div>
-		{:else}
-			<!-- 動画ダウンロード表示時のヘッダー -->
-			<div class="flex justify-center py-2">
-				<h3 class="text-lg">Movie Download</h3>
-			</div>
-		{/if}
-	</div>
-
-	{#if activeTab === 'movies'}
-		<!-- 動画リスト表示 -->
-		<table class="table-sm border-base-300 table w-full border-b-2">
-			<thead>
-				<tr>
-					<th>Deck 1</th>
-					<th>Name</th>
-					<th>Deck 2</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#if filteredMovieList.length === 0}
-					<tr>
-						<td colspan="3" class="text-base-content/70 py-8 text-center">
-							{#if searchQuery}
-								<div class="flex flex-col items-center gap-2">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-										stroke="currentColor"
-										class="h-6 w-6"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-										/>
-									</svg>
-									<p>「{searchQuery}」に一致する動画が見つかりません</p>
-									<button class="btn btn-sm btn-ghost" onclick={() => (searchQuery = '')}
-										>検索をクリア</button
-									>
-								</div>
-							{:else}
-								<div class="flex flex-col items-center gap-2">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-										stroke="currentColor"
-										class="h-6 w-6"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"
-										/>
-									</svg>
-									<p>動画がありません</p>
-									<button
-										class="btn btn-sm btn-primary mt-2"
-										onclick={() => (activeTab = 'download')}
-									>
-										動画をダウンロードする
-									</button>
-								</div>
-							{/if}
-						</td>
-					</tr>
-				{:else}
-					{#each filteredMovieList as movie}
-						<tr>
-							<td>
-								<button
-									class="btn btn-sm btn-outline w-full rounded-full"
-									aria-label="deck1_load"
-									onclick={() => {
-										loadMovie(0, movie);
-									}}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-										stroke="currentColor"
-										class="w-6"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-										/>
-									</svg>
-								</button>
-							</td>
-							<td>
-								<span
-									class="hover:bg-base-200 max-w-xs cursor-pointer truncate rounded px-2 py-1"
-									ondblclick={() => openRenameModal(movie)}
-									title="ダブルクリックして名前を変更"
-								>
-									{#if searchQuery}
-										{@html highlightSearchTerm(movie, searchQuery)}
-									{:else}
-										{movie}
-									{/if}
-								</span>
-							</td>
-							<td>
-								<button
-									class="btn btn-sm btn-outline w-full rounded-full"
-									aria-label="deck2_load"
-									onclick={() => {
-										loadMovie(1, movie);
-									}}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-										stroke="currentColor"
-										class="w-6"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-										/>
-									</svg>
-								</button>
-							</td>
-						</tr>
-					{/each}
-				{/if}
-			</tbody>
-		</table>
-	{:else}
-		<!-- 動画ダウンロードフォーム -->
-		<div class="flex justify-center py-6">
-			<div class="card bg-base-200 w-full max-w-lg shadow-sm">
-				<div class="card-body">
-					<div>
-						<div class="form-control w-full">
-							<label class="label">
-								<span class="label-text">動画URL</span>
-							</label>
-							<input
-								type="text"
-								class="input input-bordered w-full"
-								disabled={downloading}
-								placeholder="YouTubeなどの動画URL"
-								bind:value={downloadMovie.url}
-							/>
-							<label class="label">
-								<span class="label-text-alt">YouTubeやVimeoなどの動画URLを入力</span>
-							</label>
-						</div>
-
-						<div class="form-control mt-2 w-full">
-							<label class="label">
-								<span class="label-text">ダウンロードオプション</span>
-							</label>
-							<input
-								type="text"
-								class="input input-bordered w-full"
-								disabled={downloading}
-								placeholder="-f bestvideo[height=720]"
-								bind:value={downloadMovie.args}
-							/>
-							<label class="label">
-								<span class="label-text-alt"
-									>例: -f bestvideo[height=720] (720p), -f bestvideo[height=1080] (1080p)</span
-								>
-							</label>
-						</div>
-					</div>
-					<div class="card-actions mt-4 justify-end">
-						<button
-							class="btn btn-primary"
-							disabled={downloading || !downloadMovie.url}
-							onclick={movieDownload}
-						>
-							{#if downloading}
-								<span class="loading loading-spinner"></span>
-								ダウンロード中...
-							{:else}
-								ダウンロード
-							{/if}
-						</button>
-					</div>
-
-					{#if movieList.length > 0}
-						<div class="divider my-2">または</div>
-						<button class="btn btn-outline w-full" onclick={() => (activeTab = 'movies')}>
-							動画リストに戻る
-						</button>
-					{/if}
-				</div>
-			</div>
-		</div>
-	{/if}
+	<TabNavigation {activeTab} on:changetab={(e) => (activeTab = e.detail.tab)} />
 </div>
 
-<!-- 名前変更モーダル -->
-{#if renameModalOpen}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-		onclick={(e) => {
-			// モーダル外をクリックした場合は閉じる
-			if (e.target === e.currentTarget) renameModalOpen = false;
-		}}
-	>
-		<div class="bg-base-100 mx-4 w-full max-w-md rounded-lg p-6 shadow-xl">
-			{#if showDeleteConfirm}
-				<!-- 削除確認画面 -->
-				<h3 class="text-error mb-4 text-lg font-bold">ファイルを削除しますか？</h3>
-				<div class="py-2">
-					<p class="mb-4">「{selectedMovie}」を削除します。この操作は元に戻せません。</p>
-					<div class="bg-base-200 mb-2 rounded-lg p-3 text-sm">
-						<p class="font-semibold">注意:</p>
-						<ul class="list-inside list-disc">
-							<li>デッキに読み込まれている場合、デッキからも削除されます</li>
-							<li>ファイルは完全に削除され、復元できません</li>
-						</ul>
-					</div>
-				</div>
-				<div class="modal-action">
-					<button
-						class="btn btn-ghost btn-sm"
-						onclick={() => (showDeleteConfirm = false)}
-						disabled={deletingInProgress}
-					>
-						キャンセル
-					</button>
-					<button class="btn btn-error btn-sm" onclick={deleteMovie} disabled={deletingInProgress}>
-						{#if deletingInProgress}
-							<span class="loading loading-spinner loading-xs"></span>
-							削除中...
-						{:else}
-							削除する
-						{/if}
-					</button>
-				</div>
-			{:else}
-				<!-- 名前変更画面 -->
-				<h3 class="mb-4 text-lg font-bold">ファイル名の変更</h3>
-				<div class="py-2">
-					<input
-						type="text"
-						class="input input-bordered w-full"
-						bind:value={newMovieName}
-						placeholder="新しいファイル名を入力"
-						autofocus
-						onkeydown={(e) => {
-							if (e.key === 'Enter' && newMovieName && newMovieName !== selectedMovie) {
-								renameMovie();
-							} else if (e.key === 'Escape') {
-								renameModalOpen = false;
-							}
-						}}
-					/>
-					<p class="text-base-content/70 mt-2 text-xs">元のファイル名: {selectedMovie}</p>
-				</div>
-				<div class="modal-action flex justify-between">
-					<button
-						class="btn btn-error btn-sm"
-						onclick={() => (showDeleteConfirm = true)}
-						disabled={renamingInProgress}
-					>
-						削除
-					</button>
-
-					<div>
-						<button
-							class="btn btn-ghost btn-sm"
-							onclick={() => (renameModalOpen = false)}
-							disabled={renamingInProgress}
-						>
-							キャンセル
-						</button>
-						<button
-							class="btn btn-primary btn-sm ml-2"
-							onclick={renameMovie}
-							disabled={!newMovieName || newMovieName === selectedMovie || renamingInProgress}
-						>
-							{#if renamingInProgress}
-								<span class="loading loading-spinner loading-xs"></span>
-								処理中...
-							{:else}
-								変更
-							{/if}
-						</button>
-					</div>
-				</div>
-			{/if}
-		</div>
-	</div>
+{#if activeTab === 'movies'}
+	<MovieList
+		{movieList}
+		bind:searchQuery
+		on:loadmovie={(e) => loadMovie(e.detail.deck, e.detail.movie)}
+		on:openrenamemodal={(e) => openRenameModal(e.detail.movie)}
+		on:getmovielist={getMovieList}
+		on:changetab={(e) => (activeTab = e.detail.tab)}
+	/>
+{:else}
+	<MovieDownload
+		{downloadMovie}
+		{downloading}
+		{movieList}
+		on:moviedownload={movieDownload}
+		on:changetab={(e) => (activeTab = e.detail.tab)}
+	/>
 {/if}
+
+<RenameModal
+	bind:renameModalOpen
+	bind:selectedMovie
+	bind:newMovieName
+	bind:renamingInProgress
+	bind:deletingInProgress
+	bind:showDeleteConfirm
+	on:renamemovie={renameMovie}
+	on:deletemovie={deleteMovie}
+	on:closemodal={() => (renameModalOpen = false)}
+	on:setshowdeleteconfirm={(e) => (showDeleteConfirm = e.detail.value)}
+/>
+</div>
