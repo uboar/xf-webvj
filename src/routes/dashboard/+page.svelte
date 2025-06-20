@@ -306,10 +306,10 @@
 <svelte:head>
 	<title>xf-webvj dashboard</title>
 </svelte:head>
-<div class="w-screen">
+<div class="w-full max-w-screen overflow-x-hidden px-2 sm:px-4">
 	{#if decks.length >= 2}
-		<div class="grid grid-cols-5 gap-4">
-			<div class="col-span-2">
+		<div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+			<div class="md:col-span-2">
 				{#if wsClient}
 					<div class="relative">
 						<Deck
@@ -345,7 +345,7 @@
 					<div class="mt-1 text-center text-xs">{deck1Opacity}%</div>
 				</div>
 			</div>
-			<div class="py-4">
+			<div class="py-4 md:col-span-1">
 				<div class="mb-2 text-center text-sm">Crossfade</div>
 				<input
 					type="range"
@@ -363,7 +363,7 @@
 					<span class="inline-block px-1">→</span>
 				</div>
 			</div>
-			<div class="col-span-2">
+			<div class="md:col-span-2">
 				{#if wsClient}
 					<div class="relative">
 						<Deck

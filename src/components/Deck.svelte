@@ -34,14 +34,14 @@
 	};
 </script>
 
-<div class="border-base-300 col-span-2 border-x">
+<div class="border-base-300 border-x">
 	<div class="text-center">Deck {deckInfo.prefix}</div>
 	{#if deckInfo.movie !== ''}
 		<div>
-			<div class="flex">
-				<div class="border-base-300 flex flex-col gap-4 border-r px-4">
+			<div class="flex flex-col sm:flex-row">
+				<div class="border-base-300 flex flex-row sm:flex-col gap-4 sm:border-r px-4 py-2 justify-center">
 					<button
-						class="btn btn-warning btn-circle btn-outline btn-xl"
+						class="btn btn-warning btn-circle btn-outline btn-md sm:btn-xl"
 						onmousedown={() => {
 							deckInfo.playing = true;
 							cueStartPos = (deckInfo.position != undefined) ? deckInfo.position : 0;
@@ -55,7 +55,7 @@
 					>
 					{#if deckInfo.playing}
 						<button
-							class="btn btn-error btn-circle btn-outline btn-xl"
+							class="btn btn-error btn-circle btn-outline btn-md sm:btn-xl"
 							aria-label="stop-button"
 							onclick={() => {
 								deckInfo.playing = false;
@@ -68,7 +68,7 @@
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 								stroke="currentColor"
-								class="w-6"
+								class="w-5 sm:w-6"
 							>
 								<path
 									stroke-linecap="round"
@@ -79,7 +79,7 @@
 						</button>
 					{:else}
 						<button
-							class="btn btn-success btn-circle btn-xl"
+							class="btn btn-success btn-circle btn-md sm:btn-xl"
 							aria-label="play-button"
 							onclick={() => {
 								deckInfo.playing = true;
@@ -92,7 +92,7 @@
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 								stroke="currentColor"
-								class="w-6"
+								class="w-5 sm:w-6"
 							>
 								<path
 									stroke-linecap="round"
@@ -103,8 +103,8 @@
 						</button>
 					{/if}
 				</div>
-				<div class="p-4">
-					<h4 class="mb-2 h-14 text-sm">
+				<div class="p-2 sm:p-4 w-full">
+					<h4 class="mb-2 h-10 sm:h-14 text-sm overflow-hidden text-ellipsis">
 						{deckInfo.movie}
 					</h4>
 					<input
@@ -115,18 +115,18 @@
 						class="range my-2 w-full"
 						oninput={senddeck()}
 					/>
-					<div class="flex justify-between">
-						<div class="text-xl">
+					<div class="flex flex-wrap justify-between text-sm sm:text-base">
+						<div class="text-md sm:text-xl">
 							{deckBuffer.position != undefined ? durFormat(deckBuffer.position) : 'XX'} ／ {deckBuffer.length !=
 							undefined
 								? durFormat(deckBuffer.length)
 								: 'XX:XX'}
 						</div>
 						<div>
-							<label class="input input-sm">
+							<label class="input input-xs sm:input-sm">
 								<input
 									type="number"
-									class="w-12"
+									class="w-10 sm:w-12"
 									bind:value={deckInfo.rate}
 									min="0.0"
 									max="2.0"
@@ -135,59 +135,59 @@
 								/>
 							</label>
 						</div>
-						<div class="text-xl">
+						<div class="text-md sm:text-xl">
 							{deckBuffer.position != undefined && deckBuffer.length != undefined
 								? durFormat(deckBuffer.length - deckBuffer.position)
 								: 'XX:XX'}
 						</div>
 					</div>
 					<h4 class="border-base-300 my-2 w-full border-t-2">Speed Control</h4>
-					<div class="flex-between flex gap-2">
+					<div class="flex flex-wrap justify-center sm:justify-between gap-1 sm:gap-2">
 						<button
-							class="btn btn-sm btn-neutral w-8 rounded-full"
+							class="btn btn-xs sm:btn-sm btn-neutral w-6 sm:w-8 rounded-full"
 							onclick={() => {
 								updateSpeed(0.5);
 							}}>0.5</button
 						>
 						<button
-							class="btn btn-sm btn-neutral w-8 rounded-full"
+							class="btn btn-xs sm:btn-sm btn-neutral w-6 sm:w-8 rounded-full"
 							onclick={() => {
 								updateSpeed(0.75);
 							}}>0.75</button
 						>
 						<button
-							class="btn btn-sm btn-neutral w-8 rounded-full"
+							class="btn btn-xs sm:btn-sm btn-neutral w-6 sm:w-8 rounded-full"
 							onclick={() => {
 								updateSpeed(1.0);
 							}}>1</button
 						>
 						<button
-							class="btn btn-sm btn-neutral w-8 rounded-full"
+							class="btn btn-xs sm:btn-sm btn-neutral w-6 sm:w-8 rounded-full"
 							onclick={() => {
 								updateSpeed(1.25);
 							}}>1.25</button
 						>
 						<button
-							class="btn btn-sm btn-neutral w-8 rounded-full"
+							class="btn btn-xs sm:btn-sm btn-neutral w-6 sm:w-8 rounded-full"
 							onclick={() => {
 								updateSpeed(1.5);
 							}}>1.5</button
 						>
-						<div class="join">
+						<div class="join mt-2 sm:mt-0">
 							<div>
-								<label class="input input-sm join-item">
-									<input type="number" min="0" bind:value={currentBPM} />
+								<label class="input input-xs sm:input-sm join-item">
+									<input type="number" min="0" class="w-12 sm:w-16" bind:value={currentBPM} />
 									<span class="label">／</span>
-									<input type="number" min="1" bind:value={baseBPM} />
+									<input type="number" min="1" class="w-12 sm:w-16" bind:value={baseBPM} />
 								</label>
 							</div>
-							<button class="btn btn-sm btn-neutral join-item" onclick={() => calcBPM()}>=</button>
+							<button class="btn btn-xs sm:btn-sm btn-neutral join-item" onclick={() => calcBPM()}>=</button>
 						</div>
 					</div>
 				</div>
 			</div>
 		</div>
 	{:else}
-		<div class="my-16 p-4">Movie not loaded.</div>
+		<div class="my-8 sm:my-16 p-4 text-center">Movie not loaded.</div>
 	{/if}
 </div>
