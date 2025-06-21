@@ -49,7 +49,7 @@
 	// 出力ページの接続状態
 	let outputPageConnected = $state(false);
 
-	onMount(async () => {
+	onMount(() => {
 		getMovieList();
 		wsClient = new WSClientConnection();
 		wsClient.attachEvent({
@@ -122,8 +122,10 @@
 			}
 		});
 		
-		await wsClient.connect;
-		wsClient.send({ to: 'server', function: 'get-deck-state' });
+		// WebSocket接続を確立し、接続後の処理を行う
+		wsClient.connect.then(() => {
+			wsClient.send({ to: 'server', function: 'get-deck-state' });
+		});
 
 		// キーボードイベントリスナーを追加
 		window.addEventListener('keydown', handleKeyDown);

@@ -21,7 +21,7 @@
 		}
 	};
 
-	onMount(async () => {
+	onMount(() => {
 		deckElement[0].style.opacity = '1.0';
 		deckElement[1].style.opacity = '0.5';
 		wsClient = new WSClientConnection();
@@ -48,16 +48,18 @@
 				}
 			}
 		});
-		await wsClient.connect;
 		
-		// 出力ページが接続されたことを通知
-		wsClient.send({ 
-			to: 'server', 
-			function: 'output-page-connected', 
-			body: { connected: true } 
+		// WebSocket接続を確立し、接続後の処理を行う
+		wsClient.connect.then(() => {
+			// 出力ページが接続されたことを通知
+			wsClient.send({ 
+				to: 'server', 
+				function: 'output-page-connected', 
+				body: { connected: true } 
+			});
+			
+			wsClient.send({ to: 'server', function: 'get-deck-state' });
 		});
-		
-		wsClient.send({ to: 'server', function: 'get-deck-state' });
 		
 		// beforeunloadイベントリスナーを追加
 		window.addEventListener('beforeunload', notifyDisconnection);
