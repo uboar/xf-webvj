@@ -25,6 +25,11 @@
 	let currentBPM = $state(180);
 	let baseBPM = $state(180);
 	let cueStartPos = $state(0);
+	
+	// リピートモードが未定義の場合は初期化
+	if (deckInfo.repeat === undefined) {
+		deckInfo.repeat = false;
+	}
 
 	const updateSpeed = (speed: number) => {
 		deckInfo.rate = speed;
@@ -188,7 +193,18 @@
 								: 'XX:XX'}
 						</div>
 					</div>
-					<h4 class="border-base-300 my-2 w-full border-t-2">Speed Control</h4>
+					<div class="border-base-300 my-2 w-full border-t-2 flex justify-between items-center">
+						<h4>Speed Control</h4>
+						<div class="flex items-center gap-1">
+							<span class="text-xs">リピート</span>
+							<input 
+								type="checkbox" 
+								class="toggle toggle-xs toggle-success" 
+								bind:checked={deckInfo.repeat} 
+								onchange={senddeck}
+							/>
+						</div>
+					</div>
 					<div class="flex flex-wrap justify-center sm:justify-between gap-1 sm:gap-2">
 						<button
 							class="btn btn-xs sm:btn-sm btn-neutral w-6 sm:w-8 rounded-full"

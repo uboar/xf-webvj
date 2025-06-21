@@ -12,6 +12,7 @@ export type DeckType = {
   position?: number
   rate?: number
   opacity?: number
+  repeat?: boolean
 }
 
 export type WSMessage = {

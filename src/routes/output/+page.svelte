@@ -185,14 +185,29 @@
 	
 	// 動画が最後まで再生されたときの処理
 	const handleVideoEnded = (prefix: number) => {
-		// 再生状態を停止に設定
-		if (decks[prefix].playing) {
-			decks[prefix].playing = false;
+		// リピートモードが有効な場合は最初から再生を継続
+		if (decks[prefix].repeat) {
+			// 現在の位置を0に戻す
+			deckElement[prefix].currentTime = 0;
+			decks[prefix].position = 0;
+			
+			// 再生を継続
+			deckElement[prefix].play();
 			
 			// サーバーに状態変更を通知
 			wsClient.send({ to: 'server', function: 'update-movie-state', body: decks });
 			
-			console.log(`Output: Deck ${decks[prefix].prefix} playback ended, stopped automatically.`);
+			console.log(`Output: Deck ${decks[prefix].prefix} playback ended, restarting (repeat mode).`);
+		} else {
+			// リピートモードが無効な場合は停止
+			if (decks[prefix].playing) {
+				decks[prefix].playing = false;
+				
+				// サーバーに状態変更を通知
+				wsClient.send({ to: 'server', function: 'update-movie-state', body: decks });
+				
+				console.log(`Output: Deck ${decks[prefix].prefix} playback ended, stopped automatically.`);
+			}
 		}
 	};
 </script>

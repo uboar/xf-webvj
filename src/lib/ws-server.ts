@@ -13,12 +13,14 @@ let decksSrvState: DeckType[] = [
     movie: "",
     playing: false,
     opacity: 1.0,
+    repeat: false,
   },
   {
     prefix: "2",
     movie: "",
     playing: false,
     opacity: 1.0,
+    repeat: false,
   }
 ]
 
