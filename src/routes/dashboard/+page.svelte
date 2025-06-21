@@ -380,17 +380,12 @@
 					type="range"
 					min="0"
 					max="100"
-					class="range w-full [--range-fill:0]"
+					class="range range-primary range-lg w-full [--range-fill:0]"
 					bind:value={xfd}
 					oninput={() => {
 						sendXFD();
 					}}
 				/>
-				<div class="mt-2 text-center text-xs opacity-70">
-					<span class="inline-block px-1">←</span>
-					<span class="inline-block">キーボードの矢印キーでも操作可能</span>
-					<span class="inline-block px-1">→</span>
-				</div>
 			</div>
 			<div class="md:col-span-2">
 				{#if wsClient}
