@@ -45,7 +45,7 @@
 						bind:value={downloadMovie.url}
 					/>
 					<label class="label">
-						<span class="label-text-alt">YouTubeやVimeoなどの動画URLを入力</span>
+						<span class="label-text-alt">YouTubeやniconicoなどの動画URLを入力</span>
 					</label>
 				</div>
 

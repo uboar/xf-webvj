@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  xf-webvj:
+    image: uboar/xf-webvj:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4173:4173"  # Web application port
+      - "5901:5901"  # WebSocket server port
+    volumes:
+      - ./static/videos:/app/static/videos  # Mount videos directory
+    environment:
+      - PUBLIC_WS_SERVER_PORT=5901
+      - PUBLIC_MOVIE_PATH=/app/static/videos
+    restart: unless-stopped
