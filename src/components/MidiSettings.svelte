@@ -3,7 +3,15 @@
 	import { createEventDispatcher } from 'svelte';
 
 	// Props
-	let { xfd = $bindable() }: { xfd: number } = $props();
+	let { 
+		xfd = $bindable(),
+		deck1Opacity = $bindable(),
+		deck2Opacity = $bindable()
+	}: { 
+		xfd: number,
+		deck1Opacity: number,
+		deck2Opacity: number
+	} = $props();
 
 	// State
 	let midiAccess = $state<WebMidi.MIDIAccess | null>(null);
@@ -15,8 +23,17 @@
 	let midiConnected = $state(false);
 	
 	// MIDI CC設定
+	// クロスフェーダー
 	let midiChannel = $state(0); // デフォルトはチャンネル1 (0-based)
 	let midiCC = $state(31); // デフォルトはCC#31
+	
+	// デッキ1の透明度
+	let deck1Channel = $state(0); // デフォルトはチャンネル1 (0-based)
+	let deck1CC = $state(32); // デフォルトはCC#32
+	
+	// デッキ2の透明度
+	let deck2Channel = $state(0); // デフォルトはチャンネル1 (0-based)
+	let deck2CC = $state(33); // デフォルトはCC#33
 
 	const dispatch = createEventDispatcher();
 
@@ -94,18 +111,33 @@
 		// メッセージタイプを取得 (上位4ビット)
 		const type = status & 0xF0;
 		
-		// コントロールチェンジメッセージ (0xB0) かつ 設定されたチャンネルとCC番号に一致
-		if (type === 0xB0 && channel === midiChannel && data1 === midiCC) {
+		// コントロールチェンジメッセージ (0xB0)
+		if (type === 0xB0) {
 			// CC値を0-127から0-100に変換
 			const value = Math.round((data2 / 127) * 100);
 			
-			// クロスフェーダーの値を更新
-			xfd = value;
-			
-			// イベント発行
-			dispatch('xfdchange', { value });
-			
-			lastMidiMessage = `CH:${channel+1} CC#${midiCC}: ${data2} (${value}%)`;
+			// クロスフェーダー
+			if (channel === midiChannel && data1 === midiCC) {
+				xfd = value;
+				dispatch('xfdchange', { value });
+				lastMidiMessage = `クロスフェーダー: CH:${channel+1} CC#${midiCC}: ${data2} (${value}%)`;
+			}
+			// デッキ1の透明度
+			else if (channel === deck1Channel && data1 === deck1CC) {
+				deck1Opacity = value;
+				dispatch('deck1opacitychange', { value });
+				lastMidiMessage = `デッキ1透明度: CH:${channel+1} CC#${deck1CC}: ${data2} (${value}%)`;
+			}
+			// デッキ2の透明度
+			else if (channel === deck2Channel && data1 === deck2CC) {
+				deck2Opacity = value;
+				dispatch('deck2opacitychange', { value });
+				lastMidiMessage = `デッキ2透明度: CH:${channel+1} CC#${deck2CC}: ${data2} (${value}%)`;
+			}
+			// その他のCCメッセージ
+			else {
+				lastMidiMessage = `CC: CH:${channel+1} CC#${data1}: ${data2}`;
+			}
 		} else {
 			// その他のMIDIメッセージ
 			lastMidiMessage = `CH:${channel+1} Type:${type.toString(16)} Data:${data1},${data2}`;
@@ -128,8 +160,15 @@
 	const saveMidiSettings = () => {
 		if (typeof localStorage !== 'undefined') {
 			const settings = {
+				// クロスフェーダー
 				midiChannel,
-				midiCC
+				midiCC,
+				// デッキ1
+				deck1Channel,
+				deck1CC,
+				// デッキ2
+				deck2Channel,
+				deck2CC
 			};
 			localStorage.setItem('midi-settings', JSON.stringify(settings));
 		}
@@ -142,8 +181,15 @@
 			if (settingsStr) {
 				try {
 					const settings = JSON.parse(settingsStr);
+					// クロスフェーダー
 					if (settings.midiChannel !== undefined) midiChannel = settings.midiChannel;
 					if (settings.midiCC !== undefined) midiCC = settings.midiCC;
+					// デッキ1
+					if (settings.deck1Channel !== undefined) deck1Channel = settings.deck1Channel;
+					if (settings.deck1CC !== undefined) deck1CC = settings.deck1CC;
+					// デッキ2
+					if (settings.deck2Channel !== undefined) deck2Channel = settings.deck2Channel;
+					if (settings.deck2CC !== undefined) deck2CC = settings.deck2CC;
 				} catch (e) {
 					console.error('MIDI設定の読み込みに失敗しました:', e);
 				}
@@ -265,14 +311,104 @@
 							</div>
 						</div>
 						
-						<div class="alert alert-info">
+						<div class="alert alert-info mb-2">
 							<div>
 								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-								<div>
-									<p>チャンネル{midiChannel + 1}のCC#{midiCC}がクロスフェーダーに割り当てられています</p>
-									<p class="text-sm mt-1">最後に受信したMIDIメッセージ: {lastMidiMessage || 'なし'}</p>
-								</div>
+								<span>チャンネル{midiChannel + 1}のCC#{midiCC}がクロスフェーダーに割り当てられています</span>
 							</div>
+						</div>
+					</div>
+				</div>
+				
+				<div class="card bg-base-200 shadow-md mb-4">
+					<div class="card-body p-4">
+						<h4 class="card-title text-base mb-2">デッキ1透明度設定</h4>
+						
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+							<div>
+								<label class="label">
+									<span class="label-text">MIDIチャンネル</span>
+								</label>
+								<select 
+									class="select select-bordered w-full" 
+									bind:value={deck1Channel}
+								>
+									{#each Array(16).fill(0).map((_, i) => i) as ch}
+										<option value={ch}>チャンネル {ch + 1}</option>
+									{/each}
+								</select>
+							</div>
+							
+							<div>
+								<label class="label">
+									<span class="label-text">CC番号</span>
+								</label>
+								<input 
+									type="number" 
+									class="input input-bordered w-full" 
+									min="0" 
+									max="127" 
+									bind:value={deck1CC}
+								/>
+							</div>
+						</div>
+						
+						<div class="alert alert-info mb-2">
+							<div>
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+								<span>チャンネル{deck1Channel + 1}のCC#{deck1CC}がデッキ1透明度に割り当てられています</span>
+							</div>
+						</div>
+					</div>
+				</div>
+				
+				<div class="card bg-base-200 shadow-md mb-4">
+					<div class="card-body p-4">
+						<h4 class="card-title text-base mb-2">デッキ2透明度設定</h4>
+						
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+							<div>
+								<label class="label">
+									<span class="label-text">MIDIチャンネル</span>
+								</label>
+								<select 
+									class="select select-bordered w-full" 
+									bind:value={deck2Channel}
+								>
+									{#each Array(16).fill(0).map((_, i) => i) as ch}
+										<option value={ch}>チャンネル {ch + 1}</option>
+									{/each}
+								</select>
+							</div>
+							
+							<div>
+								<label class="label">
+									<span class="label-text">CC番号</span>
+								</label>
+								<input 
+									type="number" 
+									class="input input-bordered w-full" 
+									min="0" 
+									max="127" 
+									bind:value={deck2CC}
+								/>
+							</div>
+						</div>
+						
+						<div class="alert alert-info mb-2">
+							<div>
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+								<span>チャンネル{deck2Channel + 1}のCC#{deck2CC}がデッキ2透明度に割り当てられています</span>
+							</div>
+						</div>
+					</div>
+				</div>
+				
+				<div class="alert alert-info mb-4">
+					<div>
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+						<div>
+							<p>最後に受信したMIDIメッセージ: {lastMidiMessage || 'なし'}</p>
 						</div>
 					</div>
 				</div>

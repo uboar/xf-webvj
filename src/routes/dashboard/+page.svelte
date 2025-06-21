@@ -154,6 +154,16 @@
 			body: { type: 'crossfade', opacity: xfd * 0.01 }
 		});
 	};
+	
+	const sendDeck1Opacity = () => {
+		if (!wsClient) return;
+		sendDeckOpacity(0, deck1Opacity);
+	};
+	
+	const sendDeck2Opacity = () => {
+		if (!wsClient) return;
+		sendDeckOpacity(1, deck2Opacity);
+	};
 
 	const sendDeckOpacity = (deckIndex: number, opacity: number) => {
 		if (!wsClient) return;
@@ -457,8 +467,16 @@
 	{:else if activeTab === 'midi'}
 		<MidiSettings 
 			bind:xfd
+			bind:deck1Opacity
+			bind:deck2Opacity
 			on:xfdchange={(e) => {
 				sendXFD();
+			}}
+			on:deck1opacitychange={(e) => {
+				sendDeck1Opacity();
+			}}
+			on:deck2opacitychange={(e) => {
+				sendDeck2Opacity();
 			}}
 		/>
 	{:else}
