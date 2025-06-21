@@ -107,9 +107,9 @@
 	<table class="table-sm border-base-300 table w-full border-b-2">
 		<thead>
 			<tr>
-				<th class="w-20 sm:w-auto">Deck 1</th>
+				<th class="w-20 sm:w-auto whitespace-nowrap">Deck 1</th>
 				<th>Name</th>
-				<th class="w-20 sm:w-auto">Deck 2</th>
+				<th class="w-20 sm:w-auto whitespace-nowrap">Deck 2</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -186,7 +186,7 @@
 						</td>
 						<td class="px-1 sm:px-4">
 							<span
-								class="hover:bg-base-200 max-w-xs cursor-pointer truncate rounded px-2 py-1 block text-xs sm:text-sm"
+								class="hover:bg-base-200 max-w-sm md:max-w-lg lg:max-w-full cursor-pointer truncate rounded px-2 py-1 block text-xs sm:text-sm"
 								on:dblclick={() => openRenameModal(movie)}
 								title="ダブルクリックして名前を変更"
 							>
