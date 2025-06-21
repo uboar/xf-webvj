@@ -8,6 +8,7 @@
 	import RenameModal from '../../components/RenameModal.svelte';
 	import TabNavigation from '../../components/TabNavigation.svelte';
 	import DeckPreview from '../../components/DeckPreview.svelte';
+	import MidiSettings from '../../components/MidiSettings.svelte';
 
 	let movieList: string[] = $state([]);
 	let wsClient: WSClientConnection | undefined = $state();
@@ -453,6 +454,13 @@
 				<p>デッキの情報を読み込み中...</p>
 			</div>
 		{/if}
+	{:else if activeTab === 'midi'}
+		<MidiSettings 
+			bind:xfd
+			on:xfdchange={(e) => {
+				sendXFD();
+			}}
+		/>
 	{:else}
 		<MovieDownload
 			{downloadMovie}
