@@ -8,6 +8,10 @@ export interface MidiSettings {
 	deck1CC: number;
 	deck2Channel: number;
 	deck2CC: number;
+	deck1PlayChannel: number;
+	deck1PlayNote: number;
+	deck2PlayChannel: number;
+	deck2PlayNote: number;
 }
 
 // ストアの定義
@@ -26,13 +30,19 @@ export const midiSettings = writable<MidiSettings>({
 	deck1Channel: 0,
 	deck1CC: 32,
 	deck2Channel: 0,
-	deck2CC: 33
+	deck2CC: 33,
+	deck1PlayChannel: 0,
+	deck1PlayNote: 60, // C4
+	deck2PlayChannel: 0,
+	deck2PlayNote: 62  // D4
 });
 
 // イベントディスパッチャーの代わりとなるコールバックストア
 export const onXfdChange = writable<(value: number) => void>(() => {});
 export const onDeck1OpacityChange = writable<(value: number) => void>(() => {});
 export const onDeck2OpacityChange = writable<(value: number) => void>(() => {});
+export const onDeck1PlayToggle = writable<() => void>(() => {});
+export const onDeck2PlayToggle = writable<() => void>(() => {});
 
 // MIDIアクセスをリクエスト
 export const requestMidiAccess = async () => {
@@ -104,10 +114,10 @@ const handleMidiMessage = (message: WebMidi.MIDIMessageEvent) => {
 	const [status, data1, data2] = message.data;
 	const channel = status & 0x0f;
 	const type = status & 0xf0;
+	const settings = get(midiSettings);
 
 	if (type === 0xb0) { // コントロールチェンジ
 		const value = Math.round((data2 / 127) * 100);
-		const settings = get(midiSettings);
 
 		if (channel === settings.midiChannel && data1 === settings.midiCC) {
 			get(onXfdChange)(value);
@@ -120,6 +130,16 @@ const handleMidiMessage = (message: WebMidi.MIDIMessageEvent) => {
 			lastMidiMessage.set(`デッキ2透明度: CH:${channel + 1} CC#${settings.deck2CC}: ${data2} (${value}%)`);
 		} else {
 			lastMidiMessage.set(`CC: CH:${channel + 1} CC#${data1}: ${data2}`);
+		}
+	} else if (type === 0x90 && data2 > 0) { // ノートオン（ベロシティ > 0）
+		if (channel === settings.deck1PlayChannel && data1 === settings.deck1PlayNote) {
+			get(onDeck1PlayToggle)();
+			lastMidiMessage.set(`デッキ1再生/停止: CH:${channel + 1} Note:${data1}`);
+		} else if (channel === settings.deck2PlayChannel && data1 === settings.deck2PlayNote) {
+			get(onDeck2PlayToggle)();
+			lastMidiMessage.set(`デッキ2再生/停止: CH:${channel + 1} Note:${data1}`);
+		} else {
+			lastMidiMessage.set(`Note On: CH:${channel + 1} Note:${data1} Vel:${data2}`);
 		}
 	} else {
 		lastMidiMessage.set(`CH:${channel + 1} Type:${type.toString(16)} Data:${data1},${data2}`);

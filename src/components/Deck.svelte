@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { DeckType } from '$lib/types';
 	import type { WSClientConnection } from '$lib/ws-client';
+	import { onMount } from 'svelte';
+	import { onDeck1PlayToggle, onDeck2PlayToggle } from '$lib/midi';
 
 	let {
 		senddeck,
@@ -32,6 +34,30 @@
 		const seconds = ('00' + Math.ceil(time % 60)).slice(-2);
 		return `${minutes}:${seconds}`;
 	};
+	
+	// 再生/停止を切り替える関数
+	const togglePlay = () => {
+		deckInfo.playing = !deckInfo.playing;
+		senddeck();
+	};
+	
+	onMount(() => {
+		// デッキ番号に応じてMIDIコールバックを設定
+		if (deckInfo.prefix === '1') {
+			onDeck1PlayToggle.set(togglePlay);
+		} else if (deckInfo.prefix === '2') {
+			onDeck2PlayToggle.set(togglePlay);
+		}
+		
+		return () => {
+			// コンポーネントのアンマウント時にコールバックをリセット
+			if (deckInfo.prefix === '1') {
+				onDeck1PlayToggle.set(() => {});
+			} else if (deckInfo.prefix === '2') {
+				onDeck2PlayToggle.set(() => {});
+			}
+		};
+	});
 </script>
 
 <div class="border-base-300 border-x">

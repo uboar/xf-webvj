@@ -187,6 +187,78 @@
 						
 					</div>
 				</div>
+				
+				<div class="card bg-base-200 shadow-md mb-4">
+					<div class="card-body p-4">
+						<h4 class="card-title text-base mb-2">デッキ1再生/停止設定</h4>
+						
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+							<div>
+								<label class="label">
+									<span class="label-text">MIDIチャンネル</span>
+								</label>
+								<select 
+									class="select select-bordered w-full" 
+									bind:value={$midiSettings.deck1PlayChannel}
+								>
+									{#each Array(16).fill(0).map((_, i) => i) as ch}
+										<option value={ch}>チャンネル {ch + 1}</option>
+									{/each}
+								</select>
+							</div>
+							
+							<div>
+								<label class="label">
+									<span class="label-text">ノート番号</span>
+								</label>
+								<input 
+									type="number" 
+									class="input input-bordered w-full" 
+									min="0" 
+									max="127" 
+									bind:value={$midiSettings.deck1PlayNote}
+								/>
+							</div>
+						</div>
+						
+					</div>
+				</div>
+				
+				<div class="card bg-base-200 shadow-md mb-4">
+					<div class="card-body p-4">
+						<h4 class="card-title text-base mb-2">デッキ2再生/停止設定</h4>
+						
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+							<div>
+								<label class="label">
+									<span class="label-text">MIDIチャンネル</span>
+								</label>
+								<select 
+									class="select select-bordered w-full" 
+									bind:value={$midiSettings.deck2PlayChannel}
+								>
+									{#each Array(16).fill(0).map((_, i) => i) as ch}
+										<option value={ch}>チャンネル {ch + 1}</option>
+									{/each}
+								</select>
+							</div>
+							
+							<div>
+								<label class="label">
+									<span class="label-text">ノート番号</span>
+								</label>
+								<input 
+									type="number" 
+									class="input input-bordered w-full" 
+									min="0" 
+									max="127" 
+									bind:value={$midiSettings.deck2PlayNote}
+								/>
+							</div>
+						</div>
+						
+					</div>
+				</div>
 			</div>
 			
 			{#if $midiConnected}
