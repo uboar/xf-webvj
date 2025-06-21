@@ -31,9 +31,23 @@ let opacityState = {
 // 動画読み込み状態の追跡
 let videoLoadingStates = [false, false];
 
+// 出力ページの接続状態を追跡
+let outputPageConnected = false;
+
 const handle = (message: WSMessage) => {
   if (message.to === "server") {
     switch (message.function) {
+      case "output-page-connected":
+        // 出力ページの接続状態を更新
+        outputPageConnected = message.body ? (message.body as { connected: boolean }).connected : false;
+        
+        // ダッシュボードに接続状態を通知
+        send({
+          to: "dashboard",
+          function: "output-connection-status",
+          body: { connected: outputPageConnected }
+        });
+        break;
       case "get-deck-state":
         send({
           to: "dashboard",
@@ -45,6 +59,13 @@ const handle = (message: WSMessage) => {
           function: "get-deck-state",
           body: decksSrvState
         })
+        
+        // 接続状態も送信
+        send({
+          to: "dashboard",
+          function: "output-connection-status",
+          body: { connected: outputPageConnected }
+        });
         break;
       case "update-deck-state":
         if (message.body) {
@@ -150,6 +171,13 @@ export const webSocketServer: webSocketServerType = {
       to: "dashboard",
       function: "video-loading-status",
       body: { loadingStates: videoLoadingStates }
+    });
+    
+    // 初期状態でダッシュボードに出力ページの接続状態を送信
+    send({
+      to: "dashboard",
+      function: "output-connection-status",
+      body: { connected: outputPageConnected }
     });
     
     console.log('WebSocket Server Launched');
