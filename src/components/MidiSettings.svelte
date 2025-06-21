@@ -82,193 +82,204 @@
 				
 				<div class="card bg-base-200 shadow-md mb-4">
 					<div class="card-body p-4">
-						<h4 class="card-title text-base mb-2">クロスフェーダー設定</h4>
-						
-						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
-							<div>
-								<label class="label">
-									<span class="label-text">MIDIチャンネル</span>
-								</label>
-								<select 
-									class="select select-bordered w-full" 
-									bind:value={$midiSettings.midiChannel}
-								>
-									{#each Array(16).fill(0).map((_, i) => i) as ch}
-										<option value={ch}>チャンネル {ch + 1}</option>
-									{/each}
-								</select>
-							</div>
-							
-							<div>
-								<label class="label">
-									<span class="label-text">CC番号</span>
-								</label>
-								<input 
-									type="number" 
-									class="input input-bordered w-full" 
-									min="0" 
-									max="127" 
-									bind:value={$midiSettings.midiCC}
-								/>
-							</div>
+						<div class="overflow-x-auto">
+							<table class="table table-compact w-full">
+								<thead>
+									<tr>
+										<th>機能</th>
+										<th>タイプ</th>
+										<th>チャンネル</th>
+										<th>CC/ノート</th>
+									</tr>
+								</thead>
+								<tbody>
+									<!-- クロスフェーダー -->
+									<tr>
+										<td>クロスフェーダー</td>
+										<td>CC</td>
+										<td>
+											<select 
+												class="select select-bordered select-sm w-full" 
+												bind:value={$midiSettings.midiChannel}
+											>
+												{#each Array(16).fill(0).map((_, i) => i) as ch}
+													<option value={ch}>{ch + 1}</option>
+												{/each}
+											</select>
+										</td>
+										<td>
+											<input 
+												type="number" 
+												class="input input-bordered input-sm w-20" 
+												min="0" 
+												max="127" 
+												bind:value={$midiSettings.midiCC}
+											/>
+										</td>
+									</tr>
+									
+									<!-- デッキ1透明度 -->
+									<tr>
+										<td>デッキ1透明度</td>
+										<td>CC</td>
+										<td>
+											<select 
+												class="select select-bordered select-sm w-full" 
+												bind:value={$midiSettings.deck1Channel}
+											>
+												{#each Array(16).fill(0).map((_, i) => i) as ch}
+													<option value={ch}>{ch + 1}</option>
+												{/each}
+											</select>
+										</td>
+										<td>
+											<input 
+												type="number" 
+												class="input input-bordered input-sm w-20" 
+												min="0" 
+												max="127" 
+												bind:value={$midiSettings.deck1CC}
+											/>
+										</td>
+									</tr>
+									
+									<!-- デッキ2透明度 -->
+									<tr>
+										<td>デッキ2透明度</td>
+										<td>CC</td>
+										<td>
+											<select 
+												class="select select-bordered select-sm w-full" 
+												bind:value={$midiSettings.deck2Channel}
+											>
+												{#each Array(16).fill(0).map((_, i) => i) as ch}
+													<option value={ch}>{ch + 1}</option>
+												{/each}
+											</select>
+										</td>
+										<td>
+											<input 
+												type="number" 
+												class="input input-bordered input-sm w-20" 
+												min="0" 
+												max="127" 
+												bind:value={$midiSettings.deck2CC}
+											/>
+										</td>
+									</tr>
+									
+									<!-- デッキ1再生/停止 -->
+									<tr>
+										<td>デッキ1再生/停止</td>
+										<td>ノート</td>
+										<td>
+											<select 
+												class="select select-bordered select-sm w-full" 
+												bind:value={$midiSettings.deck1PlayChannel}
+											>
+												{#each Array(16).fill(0).map((_, i) => i) as ch}
+													<option value={ch}>{ch + 1}</option>
+												{/each}
+											</select>
+										</td>
+										<td>
+											<input 
+												type="number" 
+												class="input input-bordered input-sm w-20" 
+												min="0" 
+												max="127" 
+												bind:value={$midiSettings.deck1PlayNote}
+											/>
+										</td>
+									</tr>
+									
+									<!-- デッキ2再生/停止 -->
+									<tr>
+										<td>デッキ2再生/停止</td>
+										<td>ノート</td>
+										<td>
+											<select 
+												class="select select-bordered select-sm w-full" 
+												bind:value={$midiSettings.deck2PlayChannel}
+											>
+												{#each Array(16).fill(0).map((_, i) => i) as ch}
+													<option value={ch}>{ch + 1}</option>
+												{/each}
+											</select>
+										</td>
+										<td>
+											<input 
+												type="number" 
+												class="input input-bordered input-sm w-20" 
+												min="0" 
+												max="127" 
+												bind:value={$midiSettings.deck2PlayNote}
+											/>
+										</td>
+									</tr>
+									
+									<!-- デッキ1 CUE -->
+									<tr>
+										<td>デッキ1 CUE</td>
+										<td>ノート</td>
+										<td>
+											<select 
+												class="select select-bordered select-sm w-full" 
+												bind:value={$midiSettings.deck1CueChannel}
+											>
+												{#each Array(16).fill(0).map((_, i) => i) as ch}
+													<option value={ch}>{ch + 1}</option>
+												{/each}
+											</select>
+										</td>
+										<td>
+											<input 
+												type="number" 
+												class="input input-bordered input-sm w-20" 
+												min="0" 
+												max="127" 
+												bind:value={$midiSettings.deck1CueNote}
+											/>
+										</td>
+									</tr>
+									
+									<!-- デッキ2 CUE -->
+									<tr>
+										<td>デッキ2 CUE</td>
+										<td>ノート</td>
+										<td>
+											<select 
+												class="select select-bordered select-sm w-full" 
+												bind:value={$midiSettings.deck2CueChannel}
+											>
+												{#each Array(16).fill(0).map((_, i) => i) as ch}
+													<option value={ch}>{ch + 1}</option>
+												{/each}
+											</select>
+										</td>
+										<td>
+											<input 
+												type="number" 
+												class="input input-bordered input-sm w-20" 
+												min="0" 
+												max="127" 
+												bind:value={$midiSettings.deck2CueNote}
+											/>
+										</td>
+									</tr>
+								</tbody>
+							</table>
 						</div>
-						
-					</div>
-				</div>
-				
-				<div class="card bg-base-200 shadow-md mb-4">
-					<div class="card-body p-4">
-						<h4 class="card-title text-base mb-2">デッキ1透明度設定</h4>
-						
-						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
-							<div>
-								<label class="label">
-									<span class="label-text">MIDIチャンネル</span>
-								</label>
-								<select 
-									class="select select-bordered w-full" 
-									bind:value={$midiSettings.deck1Channel}
-								>
-									{#each Array(16).fill(0).map((_, i) => i) as ch}
-										<option value={ch}>チャンネル {ch + 1}</option>
-									{/each}
-								</select>
-							</div>
-							
-							<div>
-								<label class="label">
-									<span class="label-text">CC番号</span>
-								</label>
-								<input 
-									type="number" 
-									class="input input-bordered w-full" 
-									min="0" 
-									max="127" 
-									bind:value={$midiSettings.deck1CC}
-								/>
-							</div>
-						</div>
-						
-					</div>
-				</div>
-				
-				<div class="card bg-base-200 shadow-md mb-4">
-					<div class="card-body p-4">
-						<h4 class="card-title text-base mb-2">デッキ2透明度設定</h4>
-						
-						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
-							<div>
-								<label class="label">
-									<span class="label-text">MIDIチャンネル</span>
-								</label>
-								<select 
-									class="select select-bordered w-full" 
-									bind:value={$midiSettings.deck2Channel}
-								>
-									{#each Array(16).fill(0).map((_, i) => i) as ch}
-										<option value={ch}>チャンネル {ch + 1}</option>
-									{/each}
-								</select>
-							</div>
-							
-							<div>
-								<label class="label">
-									<span class="label-text">CC番号</span>
-								</label>
-								<input 
-									type="number" 
-									class="input input-bordered w-full" 
-									min="0" 
-									max="127" 
-									bind:value={$midiSettings.deck2CC}
-								/>
-							</div>
-						</div>
-						
-					</div>
-				</div>
-				
-				<div class="card bg-base-200 shadow-md mb-4">
-					<div class="card-body p-4">
-						<h4 class="card-title text-base mb-2">デッキ1再生/停止設定</h4>
-						
-						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
-							<div>
-								<label class="label">
-									<span class="label-text">MIDIチャンネル</span>
-								</label>
-								<select 
-									class="select select-bordered w-full" 
-									bind:value={$midiSettings.deck1PlayChannel}
-								>
-									{#each Array(16).fill(0).map((_, i) => i) as ch}
-										<option value={ch}>チャンネル {ch + 1}</option>
-									{/each}
-								</select>
-							</div>
-							
-							<div>
-								<label class="label">
-									<span class="label-text">ノート番号</span>
-								</label>
-								<input 
-									type="number" 
-									class="input input-bordered w-full" 
-									min="0" 
-									max="127" 
-									bind:value={$midiSettings.deck1PlayNote}
-								/>
-							</div>
-						</div>
-						
-					</div>
-				</div>
-				
-				<div class="card bg-base-200 shadow-md mb-4">
-					<div class="card-body p-4">
-						<h4 class="card-title text-base mb-2">デッキ2再生/停止設定</h4>
-						
-						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
-							<div>
-								<label class="label">
-									<span class="label-text">MIDIチャンネル</span>
-								</label>
-								<select 
-									class="select select-bordered w-full" 
-									bind:value={$midiSettings.deck2PlayChannel}
-								>
-									{#each Array(16).fill(0).map((_, i) => i) as ch}
-										<option value={ch}>チャンネル {ch + 1}</option>
-									{/each}
-								</select>
-							</div>
-							
-							<div>
-								<label class="label">
-									<span class="label-text">ノート番号</span>
-								</label>
-								<input 
-									type="number" 
-									class="input input-bordered w-full" 
-									min="0" 
-									max="127" 
-									bind:value={$midiSettings.deck2PlayNote}
-								/>
-							</div>
-						</div>
-						
 					</div>
 				</div>
 			</div>
 			
-			{#if $midiConnected}
-				<div class="mb-6">
-					<h3 class="text-lg font-semibold mb-2">MIDIモニター</h3>
-					<div class="bg-base-300 p-3 rounded-lg">
-						<p class="font-mono text-sm">{$lastMidiMessage || 'メッセージを待機中...'}</p>
-					</div>
+			<div class="mb-6">
+				<h3 class="text-lg font-semibold mb-2">MIDIモニター</h3>
+				<div class="bg-base-300 p-3 rounded-lg">
+					<p class="font-mono text-sm">{$lastMidiMessage || 'メッセージを待機中...'}</p>
 				</div>
-			{/if}
+			</div>
 		{/if}
 	{/if}
 </div>

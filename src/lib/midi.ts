@@ -12,6 +12,10 @@ export interface MidiSettings {
 	deck1PlayNote: number;
 	deck2PlayChannel: number;
 	deck2PlayNote: number;
+	deck1CueChannel: number;
+	deck1CueNote: number;
+	deck2CueChannel: number;
+	deck2CueNote: number;
 }
 
 // ストアの定義
@@ -34,7 +38,11 @@ export const midiSettings = writable<MidiSettings>({
 	deck1PlayChannel: 0,
 	deck1PlayNote: 60, // C4
 	deck2PlayChannel: 0,
-	deck2PlayNote: 62  // D4
+	deck2PlayNote: 62, // D4
+	deck1CueChannel: 0,
+	deck1CueNote: 64, // E4
+	deck2CueChannel: 0,
+	deck2CueNote: 65  // F4
 });
 
 // イベントディスパッチャーの代わりとなるコールバックストア
@@ -43,6 +51,10 @@ export const onDeck1OpacityChange = writable<(value: number) => void>(() => {});
 export const onDeck2OpacityChange = writable<(value: number) => void>(() => {});
 export const onDeck1PlayToggle = writable<() => void>(() => {});
 export const onDeck2PlayToggle = writable<() => void>(() => {});
+export const onDeck1CueDown = writable<() => void>(() => {});
+export const onDeck1CueUp = writable<() => void>(() => {});
+export const onDeck2CueDown = writable<() => void>(() => {});
+export const onDeck2CueUp = writable<() => void>(() => {});
 
 // MIDIアクセスをリクエスト
 export const requestMidiAccess = async () => {
@@ -131,15 +143,41 @@ const handleMidiMessage = (message: WebMidi.MIDIMessageEvent) => {
 		} else {
 			lastMidiMessage.set(`CC: CH:${channel + 1} CC#${data1}: ${data2}`);
 		}
-	} else if (type === 0x90 && data2 > 0) { // ノートオン（ベロシティ > 0）
-		if (channel === settings.deck1PlayChannel && data1 === settings.deck1PlayNote) {
-			get(onDeck1PlayToggle)();
-			lastMidiMessage.set(`デッキ1再生/停止: CH:${channel + 1} Note:${data1}`);
-		} else if (channel === settings.deck2PlayChannel && data1 === settings.deck2PlayNote) {
-			get(onDeck2PlayToggle)();
-			lastMidiMessage.set(`デッキ2再生/停止: CH:${channel + 1} Note:${data1}`);
+	} else if (type === 0x90) { // ノートオン
+		if (data2 > 0) { // ベロシティ > 0 (Note On)
+			if (channel === settings.deck1PlayChannel && data1 === settings.deck1PlayNote) {
+				get(onDeck1PlayToggle)();
+				lastMidiMessage.set(`デッキ1再生/停止: CH:${channel + 1} Note:${data1}`);
+			} else if (channel === settings.deck2PlayChannel && data1 === settings.deck2PlayNote) {
+				get(onDeck2PlayToggle)();
+				lastMidiMessage.set(`デッキ2再生/停止: CH:${channel + 1} Note:${data1}`);
+			} else if (channel === settings.deck1CueChannel && data1 === settings.deck1CueNote) {
+				get(onDeck1CueDown)();
+				lastMidiMessage.set(`デッキ1 CUE Down: CH:${channel + 1} Note:${data1}`);
+			} else if (channel === settings.deck2CueChannel && data1 === settings.deck2CueNote) {
+				get(onDeck2CueDown)();
+				lastMidiMessage.set(`デッキ2 CUE Down: CH:${channel + 1} Note:${data1}`);
+			} else {
+				lastMidiMessage.set(`Note On: CH:${channel + 1} Note:${data1} Vel:${data2}`);
+			}
+		} else { // ベロシティ = 0 (Note Off)
+			if (channel === settings.deck1CueChannel && data1 === settings.deck1CueNote) {
+				get(onDeck1CueUp)();
+				lastMidiMessage.set(`デッキ1 CUE Up: CH:${channel + 1} Note:${data1}`);
+			} else if (channel === settings.deck2CueChannel && data1 === settings.deck2CueNote) {
+				get(onDeck2CueUp)();
+				lastMidiMessage.set(`デッキ2 CUE Up: CH:${channel + 1} Note:${data1}`);
+			}
+		}
+	} else if (type === 0x80) { // ノートオフ
+		if (channel === settings.deck1CueChannel && data1 === settings.deck1CueNote) {
+			get(onDeck1CueUp)();
+			lastMidiMessage.set(`デッキ1 CUE Up: CH:${channel + 1} Note:${data1}`);
+		} else if (channel === settings.deck2CueChannel && data1 === settings.deck2CueNote) {
+			get(onDeck2CueUp)();
+			lastMidiMessage.set(`デッキ2 CUE Up: CH:${channel + 1} Note:${data1}`);
 		} else {
-			lastMidiMessage.set(`Note On: CH:${channel + 1} Note:${data1} Vel:${data2}`);
+			lastMidiMessage.set(`Note Off: CH:${channel + 1} Note:${data1}`);
 		}
 	} else {
 		lastMidiMessage.set(`CH:${channel + 1} Type:${type.toString(16)} Data:${data1},${data2}`);

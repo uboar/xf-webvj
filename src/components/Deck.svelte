@@ -2,7 +2,14 @@
 	import type { DeckType } from '$lib/types';
 	import type { WSClientConnection } from '$lib/ws-client';
 	import { onMount } from 'svelte';
-	import { onDeck1PlayToggle, onDeck2PlayToggle } from '$lib/midi';
+	import { 
+		onDeck1PlayToggle, 
+		onDeck2PlayToggle, 
+		onDeck1CueDown, 
+		onDeck1CueUp, 
+		onDeck2CueDown, 
+		onDeck2CueUp 
+	} from '$lib/midi';
 
 	let {
 		senddeck,
@@ -41,20 +48,42 @@
 		senddeck();
 	};
 	
+	// CUEボタンのマウスダウン処理
+	const handleCueDown = () => {
+		deckInfo.playing = true;
+		cueStartPos = (deckInfo.position != undefined) ? deckInfo.position : 0;
+		senddeck();
+	};
+	
+	// CUEボタンのマウスアップ処理
+	const handleCueUp = () => {
+		deckInfo.playing = false;
+		deckInfo.position = cueStartPos;
+		senddeck();
+	};
+	
 	onMount(() => {
 		// デッキ番号に応じてMIDIコールバックを設定
 		if (deckInfo.prefix === '1') {
 			onDeck1PlayToggle.set(togglePlay);
+			onDeck1CueDown.set(handleCueDown);
+			onDeck1CueUp.set(handleCueUp);
 		} else if (deckInfo.prefix === '2') {
 			onDeck2PlayToggle.set(togglePlay);
+			onDeck2CueDown.set(handleCueDown);
+			onDeck2CueUp.set(handleCueUp);
 		}
 		
 		return () => {
 			// コンポーネントのアンマウント時にコールバックをリセット
 			if (deckInfo.prefix === '1') {
 				onDeck1PlayToggle.set(() => {});
+				onDeck1CueDown.set(() => {});
+				onDeck1CueUp.set(() => {});
 			} else if (deckInfo.prefix === '2') {
 				onDeck2PlayToggle.set(() => {});
+				onDeck2CueDown.set(() => {});
+				onDeck2CueUp.set(() => {});
 			}
 		};
 	});
@@ -68,16 +97,8 @@
 				<div class="border-base-300 flex flex-row sm:flex-col gap-4 sm:border-r px-4 py-2 justify-center">
 					<button
 						class="btn btn-warning btn-circle btn-outline btn-md sm:btn-xl"
-						onmousedown={() => {
-							deckInfo.playing = true;
-							cueStartPos = (deckInfo.position != undefined) ? deckInfo.position : 0;
-							senddeck();
-						}}
-						onmouseup={() => {
-							deckInfo.playing = false;
-							deckInfo.position = cueStartPos;
-							senddeck();
-						}}>CUE</button
+						onmousedown={handleCueDown}
+						onmouseup={handleCueUp}>CUE</button
 					>
 					{#if deckInfo.playing}
 						<button
