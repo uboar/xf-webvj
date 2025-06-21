@@ -14,10 +14,10 @@
 	let movieList: string[] = $state([]);
 	let wsClient: WSClientConnection | undefined = $state();
 
-	let downloadMovie: DownloadMovieRequest = {
+	let downloadMovie = $state<DownloadMovieRequest>({
 		url: '',
 		args: '-f bestvideo[height=720]'
-	};
+	});
 
 	let downloading = $state(false);
 
