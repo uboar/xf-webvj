@@ -311,12 +311,6 @@
 							</div>
 						</div>
 						
-						<div class="alert alert-info mb-2">
-							<div>
-								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-								<span>チャンネル{midiChannel + 1}のCC#{midiCC}がクロスフェーダーに割り当てられています</span>
-							</div>
-						</div>
 					</div>
 				</div>
 				
@@ -353,12 +347,6 @@
 							</div>
 						</div>
 						
-						<div class="alert alert-info mb-2">
-							<div>
-								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-								<span>チャンネル{deck1Channel + 1}のCC#{deck1CC}がデッキ1透明度に割り当てられています</span>
-							</div>
-						</div>
 					</div>
 				</div>
 				
@@ -395,40 +383,11 @@
 							</div>
 						</div>
 						
-						<div class="alert alert-info mb-2">
-							<div>
-								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-								<span>チャンネル{deck2Channel + 1}のCC#{deck2CC}がデッキ2透明度に割り当てられています</span>
-							</div>
-						</div>
-					</div>
-				</div>
-				
-				<div class="alert alert-info mb-4">
-					<div>
-						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-						<div>
-							<p>最後に受信したMIDIメッセージ: {lastMidiMessage || 'なし'}</p>
-						</div>
 					</div>
 				</div>
 			</div>
 			
 			{#if midiConnected}
-				<div class="mb-6">
-					<h3 class="text-lg font-semibold mb-2">クロスフェーダー値</h3>
-					<div class="flex items-center gap-4">
-						<input
-							type="range"
-							min="0"
-							max="100"
-							class="range range-primary range-lg w-full"
-							bind:value={xfd}
-						/>
-						<span class="text-lg font-bold w-12 text-center">{xfd}%</span>
-					</div>
-				</div>
-				
 				<div class="mb-6">
 					<h3 class="text-lg font-semibold mb-2">MIDIモニター</h3>
 					<div class="bg-base-300 p-3 rounded-lg">
