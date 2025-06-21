@@ -9,6 +9,7 @@
 	import TabNavigation from '../../components/TabNavigation.svelte';
 	import DeckPreview from '../../components/DeckPreview.svelte';
 	import MidiSettings from '../../components/MidiSettings.svelte';
+	import { onXfdChange, onDeck1OpacityChange, onDeck2OpacityChange } from '$lib/midi';
 
 	let movieList: string[] = $state([]);
 	let wsClient: WSClientConnection | undefined = $state();
@@ -135,6 +136,22 @@
 		return () => {
 			window.removeEventListener('keydown', handleKeyDown);
 		};
+	});
+
+	// MIDIコールバックを設定
+	onMount(() => {
+		onXfdChange.set((value) => {
+			xfd = value;
+			sendXFD();
+		});
+		onDeck1OpacityChange.set((value) => {
+			deck1Opacity = value;
+			sendDeck1Opacity();
+		});
+		onDeck2OpacityChange.set((value) => {
+			deck2Opacity = value;
+			sendDeck2Opacity();
+		});
 	});
 
 	const sendDeckState = () => {
@@ -469,15 +486,6 @@
 			bind:xfd
 			bind:deck1Opacity
 			bind:deck2Opacity
-			on:xfdchange={(e) => {
-				sendXFD();
-			}}
-			on:deck1opacitychange={(e) => {
-				sendDeck1Opacity();
-			}}
-			on:deck2opacitychange={(e) => {
-				sendDeck2Opacity();
-			}}
 		/>
 	{:else}
 		<MovieDownload
