@@ -1,5 +1,8 @@
 import { writable, get } from 'svelte/store';
 
+// CC制御モードの型定義
+export type CCControlMode = 'absolute' | 'relative';
+
 // MIDI設定の型定義
 export interface MidiSettings {
 	midiChannel: number;
@@ -16,11 +19,19 @@ export interface MidiSettings {
 	deck1CueNote: number;
 	deck2CueChannel: number;
 	deck2CueNote: number;
+	// CC制御モード設定
+	xfdMode: CCControlMode;
+	deck1OpacityMode: CCControlMode;
+	deck2OpacityMode: CCControlMode;
+	// 相対的変化の感度設定（0.1〜5.0）
+	xfdRelativeSensitivity: number;
+	deck1OpacityRelativeSensitivity: number;
+	deck2OpacityRelativeSensitivity: number;
 }
 
 // ストアの定義
-export const midiAccess = writable<WebMidi.MIDIAccess | null>(null);
-export const midiInputs = writable<WebMidi.MIDIInput[]>([]);
+export const midiAccess = writable<any | null>(null);
+export const midiInputs = writable<any[]>([]);
 export const selectedInputId = writable<string | null>(null);
 export const midiStatus = writable('未接続');
 export const lastMidiMessage = writable('');
@@ -42,7 +53,22 @@ export const midiSettings = writable<MidiSettings>({
 	deck1CueChannel: 0,
 	deck1CueNote: 64, // E4
 	deck2CueChannel: 0,
-	deck2CueNote: 65  // F4
+	deck2CueNote: 65,  // F4
+	// デフォルトは絶対値モード
+	xfdMode: 'absolute',
+	deck1OpacityMode: 'absolute',
+	deck2OpacityMode: 'absolute',
+	// 相対的変化の感度（デフォルト: 1.0）
+	xfdRelativeSensitivity: 1.0,
+	deck1OpacityRelativeSensitivity: 1.0,
+	deck2OpacityRelativeSensitivity: 1.0
+});
+
+// 現在値を保持するストア（相対的変化モード用）
+export const currentValues = writable({
+	xfd: 50,
+	deck1Opacity: 100,
+	deck2Opacity: 100
 });
 
 // イベントディスパッチャーの代わりとなるコールバックストア
@@ -85,7 +111,7 @@ const updateMidiInputs = () => {
 	midiInputs.set(inputs);
 
 	const currentSelectedId = get(selectedInputId);
-	if (currentSelectedId && !inputs.some(input => input.id === currentSelectedId)) {
+	if (currentSelectedId && !inputs.some((input: any) => input.id === currentSelectedId)) {
 		selectedInputId.set(null);
 	}
 };
@@ -122,24 +148,48 @@ export const disconnectMidiInput = () => {
 };
 
 // MIDIメッセージを処理
-const handleMidiMessage = (message: WebMidi.MIDIMessageEvent) => {
+const handleMidiMessage = (message: any) => {
 	const [status, data1, data2] = message.data;
 	const channel = status & 0x0f;
 	const type = status & 0xf0;
 	const settings = get(midiSettings);
+	const current = get(currentValues);
 
 	if (type === 0xb0) { // コントロールチェンジ
-		const value = Math.round((data2 / 127) * 100);
-
 		if (channel === settings.midiChannel && data1 === settings.midiCC) {
+			let value: number;
+			if (settings.xfdMode === 'absolute') {
+				value = Math.round((data2 / 127) * 100);
+			} else {
+				// 相対的変化モード: 64が中心、63以下は減少、65以上は増加
+				const delta = (data2 - 64) * settings.xfdRelativeSensitivity;
+				value = Math.max(0, Math.min(100, current.xfd + delta));
+				currentValues.update(v => ({ ...v, xfd: value }));
+			}
 			get(onXfdChange)(value);
-			lastMidiMessage.set(`クロスフェーダー: CH:${channel + 1} CC#${settings.midiCC}: ${data2} (${value}%)`);
+			lastMidiMessage.set(`クロスフェーダー: CH:${channel + 1} CC#${settings.midiCC}: ${data2} (${Math.round(value)}%)`);
 		} else if (channel === settings.deck1Channel && data1 === settings.deck1CC) {
+			let value: number;
+			if (settings.deck1OpacityMode === 'absolute') {
+				value = Math.round((data2 / 127) * 100);
+			} else {
+				const delta = (data2 - 64) * settings.deck1OpacityRelativeSensitivity;
+				value = Math.max(0, Math.min(100, current.deck1Opacity + delta));
+				currentValues.update(v => ({ ...v, deck1Opacity: value }));
+			}
 			get(onDeck1OpacityChange)(value);
-			lastMidiMessage.set(`デッキ1透明度: CH:${channel + 1} CC#${settings.deck1CC}: ${data2} (${value}%)`);
+			lastMidiMessage.set(`デッキ1透明度: CH:${channel + 1} CC#${settings.deck1CC}: ${data2} (${Math.round(value)}%)`);
 		} else if (channel === settings.deck2Channel && data1 === settings.deck2CC) {
+			let value: number;
+			if (settings.deck2OpacityMode === 'absolute') {
+				value = Math.round((data2 / 127) * 100);
+			} else {
+				const delta = (data2 - 64) * settings.deck2OpacityRelativeSensitivity;
+				value = Math.max(0, Math.min(100, current.deck2Opacity + delta));
+				currentValues.update(v => ({ ...v, deck2Opacity: value }));
+			}
 			get(onDeck2OpacityChange)(value);
-			lastMidiMessage.set(`デッキ2透明度: CH:${channel + 1} CC#${settings.deck2CC}: ${data2} (${value}%)`);
+			lastMidiMessage.set(`デッキ2透明度: CH:${channel + 1} CC#${settings.deck2CC}: ${data2} (${Math.round(value)}%)`);
 		} else {
 			lastMidiMessage.set(`CC: CH:${channel + 1} CC#${data1}: ${data2}`);
 		}
@@ -185,7 +235,7 @@ const handleMidiMessage = (message: WebMidi.MIDIMessageEvent) => {
 };
 
 // MIDI接続状態の変更を監視
-const handleMidiStateChange = (event: WebMidi.MIDIConnectionEvent) => {
+const handleMidiStateChange = (event: any) => {
 	updateMidiInputs();
 
 	if (event.port.type === 'input' && event.port.id === get(selectedInputId) && event.port.state === 'disconnected') {
@@ -215,6 +265,11 @@ export const loadMidiSettings = () => {
 			}
 		}
 	}
+};
+
+// 現在値を更新する関数（外部から呼び出し可能）
+export const updateCurrentValues = (values: Partial<{ xfd: number; deck1Opacity: number; deck2Opacity: number }>) => {
+	currentValues.update(current => ({ ...current, ...values }));
 };
 
 // アプリケーション初期化時に設定を読み込む

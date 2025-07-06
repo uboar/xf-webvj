@@ -90,6 +90,8 @@
 										<th>タイプ</th>
 										<th>チャンネル</th>
 										<th>CC/ノート</th>
+										<th>モード</th>
+										<th>感度</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -116,6 +118,29 @@
 												bind:value={$midiSettings.midiCC}
 											/>
 										</td>
+										<td>
+											<select 
+												class="select select-bordered select-sm w-full" 
+												bind:value={$midiSettings.xfdMode}
+											>
+												<option value="absolute">絶対値</option>
+												<option value="relative">相対値</option>
+											</select>
+										</td>
+										<td>
+											{#if $midiSettings.xfdMode === 'relative'}
+												<input 
+													type="number" 
+													class="input input-bordered input-sm w-20" 
+													min="0.1" 
+													max="5.0" 
+													step="0.1"
+													bind:value={$midiSettings.xfdRelativeSensitivity}
+												/>
+											{:else}
+												-
+											{/if}
+										</td>
 									</tr>
 									
 									<!-- デッキ1透明度 -->
@@ -140,6 +165,29 @@
 												max="127" 
 												bind:value={$midiSettings.deck1CC}
 											/>
+										</td>
+										<td>
+											<select 
+												class="select select-bordered select-sm w-full" 
+												bind:value={$midiSettings.deck1OpacityMode}
+											>
+												<option value="absolute">絶対値</option>
+												<option value="relative">相対値</option>
+											</select>
+										</td>
+										<td>
+											{#if $midiSettings.deck1OpacityMode === 'relative'}
+												<input 
+													type="number" 
+													class="input input-bordered input-sm w-20" 
+													min="0.1" 
+													max="5.0" 
+													step="0.1"
+													bind:value={$midiSettings.deck1OpacityRelativeSensitivity}
+												/>
+											{:else}
+												-
+											{/if}
 										</td>
 									</tr>
 									
@@ -166,6 +214,29 @@
 												bind:value={$midiSettings.deck2CC}
 											/>
 										</td>
+										<td>
+											<select 
+												class="select select-bordered select-sm w-full" 
+												bind:value={$midiSettings.deck2OpacityMode}
+											>
+												<option value="absolute">絶対値</option>
+												<option value="relative">相対値</option>
+											</select>
+										</td>
+										<td>
+											{#if $midiSettings.deck2OpacityMode === 'relative'}
+												<input 
+													type="number" 
+													class="input input-bordered input-sm w-20" 
+													min="0.1" 
+													max="5.0" 
+													step="0.1"
+													bind:value={$midiSettings.deck2OpacityRelativeSensitivity}
+												/>
+											{:else}
+												-
+											{/if}
+										</td>
 									</tr>
 									
 									<!-- デッキ1再生/停止 -->
@@ -191,6 +262,8 @@
 												bind:value={$midiSettings.deck1PlayNote}
 											/>
 										</td>
+										<td>-</td>
+										<td>-</td>
 									</tr>
 									
 									<!-- デッキ2再生/停止 -->
@@ -216,6 +289,8 @@
 												bind:value={$midiSettings.deck2PlayNote}
 											/>
 										</td>
+										<td>-</td>
+										<td>-</td>
 									</tr>
 									
 									<!-- デッキ1 CUE -->
@@ -241,6 +316,8 @@
 												bind:value={$midiSettings.deck1CueNote}
 											/>
 										</td>
+										<td>-</td>
+										<td>-</td>
 									</tr>
 									
 									<!-- デッキ2 CUE -->
@@ -266,6 +343,8 @@
 												bind:value={$midiSettings.deck2CueNote}
 											/>
 										</td>
+										<td>-</td>
+										<td>-</td>
 									</tr>
 								</tbody>
 							</table>

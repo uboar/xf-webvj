@@ -9,7 +9,7 @@
 	import TabNavigation from '../../components/TabNavigation.svelte';
 	import DeckPreview from '../../components/DeckPreview.svelte';
 	import MidiSettings from '../../components/MidiSettings.svelte';
-	import { onXfdChange, onDeck1OpacityChange, onDeck2OpacityChange } from '$lib/midi';
+	import { onXfdChange, onDeck1OpacityChange, onDeck2OpacityChange, updateCurrentValues } from '$lib/midi';
 
 	let movieList: string[] = $state([]);
 	let wsClient: WSClientConnection | undefined = $state();
@@ -125,8 +125,8 @@
 		});
 		
 		// WebSocket接続を確立し、接続後の処理を行う
-		wsClient.connect.then(() => {
-			wsClient.send({ to: 'server', function: 'get-deck-state' });
+		wsClient?.connect.then(() => {
+			wsClient?.send({ to: 'server', function: 'get-deck-state' });
 		});
 
 		// キーボードイベントリスナーを追加
@@ -151,6 +151,15 @@
 		onDeck2OpacityChange.set((value) => {
 			deck2Opacity = value;
 			sendDeck2Opacity();
+		});
+	});
+
+	// 値の変更を監視してMIDIライブラリの現在値を更新
+	$effect(() => {
+		updateCurrentValues({
+			xfd: xfd,
+			deck1Opacity: deck1Opacity,
+			deck2Opacity: deck2Opacity
 		});
 	});
 
