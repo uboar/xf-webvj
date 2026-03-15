@@ -37,7 +37,7 @@
 	let youtubeUrls = $state(['', '']);
 
 	// タブ切り替え用の状態
-	let activeTab = $state('movies'); // 'movies' または 'download'
+	let activeTab = $state('movies');
 	let playlist = $state<string[]>([]);
 
 	let decks: DeckType[] = $state([]);
@@ -570,6 +570,16 @@
 	</div>
 
 	{#if activeTab === 'movies'}
+		<MovieList
+			{movieList}
+			bind:searchQuery
+			on:loadmovie={(e) => loadMovie(e.detail.deck, e.detail.movie)}
+			on:addtoplaylist={(e) => addToPlaylist(e.detail.movie)}
+			on:openrenamemodal={(e) => openRenameModal(e.detail.movie)}
+			on:getmovielist={getMovieList}
+			on:changetab={(e) => (activeTab = e.detail.tab)}
+		/>
+	{:else if activeTab === 'youtube'}
 		<div class="border-base-300 border-b px-4 py-4">
 			<div class="mb-3 flex items-center justify-between gap-2">
 				<h3 class="text-md font-semibold">YouTube埋め込み</h3>
@@ -602,15 +612,6 @@
 				{/each}
 			</div>
 		</div>
-		<MovieList
-			{movieList}
-			bind:searchQuery
-			on:loadmovie={(e) => loadMovie(e.detail.deck, e.detail.movie)}
-			on:addtoplaylist={(e) => addToPlaylist(e.detail.movie)}
-			on:openrenamemodal={(e) => openRenameModal(e.detail.movie)}
-			on:getmovielist={getMovieList}
-			on:changetab={(e) => (activeTab = e.detail.tab)}
-		/>
 	{:else if activeTab === 'playlist'}
 		<PlaylistManager
 			{playlist}

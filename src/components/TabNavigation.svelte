@@ -32,6 +32,31 @@
 		<span class="text-xs sm:text-sm">動画リスト</span>
 	</button>
 	<button
+		class={`tab ${activeTab === 'youtube' ? 'tab-active' : ''}`}
+		on:click={() => changeTab('youtube')}
+	>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			fill="none"
+			viewBox="0 0 24 24"
+			stroke-width="1.5"
+			stroke="currentColor"
+			class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
+		>
+			<path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				d="M10.5 15.75 15.75 12 10.5 8.25v7.5Z"
+			/>
+			<path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				d="M21 7.5c0-1.657-1.343-3-3-3H6c-1.657 0-3 1.343-3 3v9c0 1.657 1.343 3 3 3h12c1.657 0 3-1.343 3-3v-9Z"
+			/>
+		</svg>
+		<span class="text-xs sm:text-sm">YouTube</span>
+	</button>
+	<button
 		class={`tab ${activeTab === 'playlist' ? 'tab-active' : ''}`}
 		on:click={() => changeTab('playlist')}
 	>
