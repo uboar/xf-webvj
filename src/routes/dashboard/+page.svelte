@@ -208,6 +208,12 @@
 		// 透明度変更時はデッキ状態の送信を行わない（再生状態を保持）
 		// sendDeckState(); // この行をコメントアウト
 	};
+
+	const getParentPath = (moviePath: string) => {
+		const lastSlashIndex = moviePath.lastIndexOf('/');
+		return lastSlashIndex === -1 ? '' : moviePath.slice(0, lastSlashIndex);
+	};
+
 	const getMovieList = async () => {
 		const res = await fetch('/api/get-movie-list');
 		movieList = await res.json();
@@ -233,7 +239,7 @@
 	// 名前変更モーダルを開く
 	const openRenameModal = (movie: string) => {
 		selectedMovie = movie;
-		newMovieName = movie;
+		newMovieName = movie.split('/').pop() ?? movie;
 		renameModalOpen = true;
 	};
 
@@ -241,6 +247,9 @@
 	const renameMovie = async () => {
 		try {
 			renamingInProgress = true;
+			const parentDir = getParentPath(selectedMovie);
+			const targetMovieName =
+				parentDir && !newMovieName.includes('/') ? `${parentDir}/${newMovieName}` : newMovieName;
 
 			const response = await fetch('/api/rename-movie', {
 				method: 'POST',
@@ -249,7 +258,7 @@
 				},
 				body: JSON.stringify({
 					oldName: selectedMovie,
-					newName: newMovieName
+					newName: targetMovieName
 				})
 			});
 
@@ -258,11 +267,11 @@
 			if (response.ok) {
 				// デッキに読み込まれている場合は更新
 				if (decks[0].movie === selectedMovie) {
-					decks[0].movie = newMovieName;
+					decks[0].movie = targetMovieName;
 					sendDeckState();
 				}
 				if (decks[1].movie === selectedMovie) {
-					decks[1].movie = newMovieName;
+					decks[1].movie = targetMovieName;
 					sendDeckState();
 				}
 

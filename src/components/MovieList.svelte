@@ -1,6 +1,20 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 
+	type MovieTreeNode = {
+		name: string;
+		path: string;
+		type: 'folder' | 'file';
+		children?: MovieTreeNode[];
+	};
+
+	type MovieTreeRow = {
+		type: 'folder' | 'file';
+		name: string;
+		path: string;
+		depth: number;
+	};
+
 	let {
 		movieList,
 		searchQuery = $bindable('')
@@ -10,10 +24,134 @@
 	} = $props();
 
 	const dispatch = createEventDispatcher();
+	let expandedFolders = $state(new Set<string>());
+	let folderStateInitialized = $state(false);
 
 	let filteredMovieList = $derived.by(() => {
 		if (!searchQuery) return movieList;
 		return movieList.filter((movie) => movie.toLowerCase().includes(searchQuery.toLowerCase()));
+	});
+
+	const sortNodes = (nodes: MovieTreeNode[]) =>
+		nodes.sort((a, b) => {
+			if (a.type !== b.type) {
+				return a.type === 'folder' ? -1 : 1;
+			}
+
+			return a.name.localeCompare(b.name);
+		});
+
+	const buildMovieTree = (movies: string[]) => {
+		const rootNodes: MovieTreeNode[] = [];
+		const folderMap = new Map<string, MovieTreeNode>();
+
+		for (const movie of movies) {
+			const segments = movie.split('/');
+			let currentNodes = rootNodes;
+			let currentPath = '';
+
+			for (const [index, segment] of segments.entries()) {
+				currentPath = currentPath ? `${currentPath}/${segment}` : segment;
+				const isFile = index === segments.length - 1;
+
+				if (isFile) {
+					currentNodes.push({
+						name: segment,
+						path: currentPath,
+						type: 'file'
+					});
+					continue;
+				}
+
+				let folderNode = folderMap.get(currentPath);
+
+				if (!folderNode) {
+					folderNode = {
+						name: segment,
+						path: currentPath,
+						type: 'folder',
+						children: []
+					};
+					folderMap.set(currentPath, folderNode);
+					currentNodes.push(folderNode);
+				}
+
+				currentNodes = folderNode.children ?? [];
+			}
+		}
+
+		const sortTree = (nodes: MovieTreeNode[]) => {
+			sortNodes(nodes);
+			for (const node of nodes) {
+				if (node.children) {
+					sortTree(node.children);
+				}
+			}
+		};
+
+		sortTree(rootNodes);
+		return rootNodes;
+	};
+
+	const collectFolderPaths = (nodes: MovieTreeNode[]): string[] =>
+		nodes.flatMap((node) =>
+			node.type === 'folder' ? [node.path, ...collectFolderPaths(node.children ?? [])] : []
+		);
+
+	const collectRootFolderPaths = (nodes: MovieTreeNode[]) =>
+		nodes.filter((node) => node.type === 'folder').map((node) => node.path);
+
+	const flattenMovieTree = (
+		nodes: MovieTreeNode[],
+		depth = 0,
+		rows: MovieTreeRow[] = []
+	): MovieTreeRow[] => {
+		for (const node of nodes) {
+			rows.push({
+				type: node.type,
+				name: node.name,
+				path: node.path,
+				depth
+			});
+
+			if (
+				node.type === 'folder' &&
+				node.children &&
+				(searchQuery || expandedFolders.has(node.path))
+			) {
+				flattenMovieTree(node.children, depth + 1, rows);
+			}
+		}
+
+		return rows;
+	};
+
+	let movieTree = $derived.by(() => buildMovieTree(filteredMovieList));
+	let visibleRows = $derived.by(() => flattenMovieTree(movieTree));
+
+	$effect(() => {
+		const folderPaths = collectFolderPaths(movieTree);
+		const nextExpandedFolders = new Set(
+			[...expandedFolders].filter((folderPath) => folderPaths.includes(folderPath))
+		);
+
+		if (!folderStateInitialized && folderPaths.length > 0) {
+			for (const folderPath of collectRootFolderPaths(movieTree)) {
+				nextExpandedFolders.add(folderPath);
+			}
+
+			folderStateInitialized = true;
+			expandedFolders = nextExpandedFolders;
+			return;
+		}
+
+		const hasChanged =
+			nextExpandedFolders.size !== expandedFolders.size ||
+			[...nextExpandedFolders].some((folderPath) => !expandedFolders.has(folderPath));
+
+		if (hasChanged) {
+			expandedFolders = nextExpandedFolders;
+		}
 	});
 
 	const highlightSearchTerm = (text: string, query: string) => {
@@ -46,6 +184,23 @@
 
 	const changeTab = (tab: string) => {
 		dispatch('changetab', { tab });
+	};
+
+	const toggleFolder = (folderPath: string) => {
+		const nextExpandedFolders = new Set(expandedFolders);
+
+		if (nextExpandedFolders.has(folderPath)) {
+			nextExpandedFolders.delete(folderPath);
+		} else {
+			nextExpandedFolders.add(folderPath);
+		}
+
+		expandedFolders = nextExpandedFolders;
+	};
+
+	const getParentPath = (moviePath: string) => {
+		const lastSlashIndex = moviePath.lastIndexOf('/');
+		return lastSlashIndex === -1 ? '' : moviePath.slice(0, lastSlashIndex);
 	};
 </script>
 
@@ -160,66 +315,113 @@
 					</td>
 				</tr>
 			{:else}
-				{#each filteredMovieList as movie}
-					<tr>
-						<td class="px-1 sm:px-4">
-							<button
-								class="btn btn-xs sm:btn-sm btn-outline w-full rounded-full"
-								aria-label="deck1_load"
-								on:click={() => loadMovie(0, movie)}
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="w-4 sm:w-6"
+				{#each visibleRows as row}
+					{#if row.type === 'folder'}
+						<tr class="bg-base-200/40">
+							<td colspan="3" class="px-1 sm:px-4">
+								<button
+									class="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs sm:text-sm"
+									on:click={() => toggleFolder(row.path)}
 								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-									/>
-								</svg>
-							</button>
-						</td>
-						<td class="px-1 sm:px-4">
-							<span
-								class="hover:bg-base-200 max-w-sm md:max-w-lg lg:max-w-full cursor-pointer truncate rounded px-2 py-1 block text-xs sm:text-sm"
-								on:dblclick={() => openRenameModal(movie)}
-								title="ダブルクリックして名前を変更"
-							>
-										{#if searchQuery}
-											{@html highlightSearchTerm(movie, searchQuery ?? '')}
+									<span class="inline-flex w-4 justify-center">
+										{#if searchQuery || expandedFolders.has(row.path)}
+											▾
 										{:else}
-											{movie}
+											▸
 										{/if}
-							</span>
-						</td>
-						<td class="px-1 sm:px-4">
-							<button
-								class="btn btn-xs sm:btn-sm btn-outline w-full rounded-full"
-								aria-label="deck2_load"
-								on:click={() => loadMovie(1, movie)}
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="w-4 sm:w-6"
+									</span>
+									<span
+										class="text-base-content/60"
+										style={`padding-left: ${row.depth * 1.25}rem`}
+									>
+										[dir]
+									</span>
+									<span class="font-medium">
+										{#if searchQuery}
+											{@html highlightSearchTerm(row.name, searchQuery ?? '')}
+										{:else}
+											{row.name}
+										{/if}
+									</span>
+								</button>
+							</td>
+						</tr>
+					{:else}
+						<tr>
+							<td class="px-1 sm:px-4">
+								<button
+									class="btn btn-xs sm:btn-sm btn-outline w-full rounded-full"
+									aria-label="deck1_load"
+									on:click={() => loadMovie(0, row.path)}
 								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-									/>
-								</svg>
-							</button>
-						</td>
-					</tr>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+										stroke="currentColor"
+										class="w-4 sm:w-6"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+										/>
+									</svg>
+								</button>
+							</td>
+							<td class="px-1 sm:px-4">
+								<span
+									class="hover:bg-base-200 block max-w-sm cursor-pointer rounded px-2 py-1 text-xs sm:max-w-none sm:text-sm"
+									on:dblclick={() => openRenameModal(row.path)}
+									title="ダブルクリックして名前を変更"
+								>
+									<span
+										class="flex items-start gap-2"
+										style={`padding-left: ${row.depth * 1.25}rem`}
+									>
+										<span class="text-base-content/60 pt-0.5">•</span>
+										<span class="min-w-0">
+											<span class="block truncate">
+												{#if searchQuery}
+													{@html highlightSearchTerm(row.name, searchQuery ?? '')}
+												{:else}
+													{row.name}
+												{/if}
+											</span>
+											{#if getParentPath(row.path)}
+												<span class="text-base-content/50 block truncate text-[11px] sm:text-xs">
+													{getParentPath(row.path)}
+												</span>
+											{/if}
+										</span>
+									</span>
+								</span>
+							</td>
+							<td class="px-1 sm:px-4">
+								<button
+									class="btn btn-xs sm:btn-sm btn-outline w-full rounded-full"
+									aria-label="deck2_load"
+									on:click={() => loadMovie(1, row.path)}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+										stroke="currentColor"
+										class="w-4 sm:w-6"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+										/>
+									</svg>
+								</button>
+							</td>
+						</tr>
+					{/if}
 				{/each}
 			{/if}
 		</tbody>

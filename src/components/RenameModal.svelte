@@ -34,6 +34,12 @@
 	const setShowDeleteConfirm = (value: boolean) => {
 		dispatch('setshowdeleteconfirm', { value });
 	};
+
+	const getParentPath = (moviePath?: string) => {
+		if (!moviePath) return '';
+		const lastSlashIndex = moviePath.lastIndexOf('/');
+		return lastSlashIndex === -1 ? '' : moviePath.slice(0, lastSlashIndex);
+	};
 </script>
 
 {#if renameModalOpen}
@@ -94,6 +100,11 @@
 						}}
 					/>
 					<p class="text-base-content/70 mt-2 text-xs">元のファイル名: {selectedMovie}</p>
+					{#if getParentPath(selectedMovie)}
+						<p class="text-base-content/60 mt-1 text-xs">
+							保存先フォルダ: {getParentPath(selectedMovie)}
+						</p>
+					{/if}
 				</div>
 				<div class="modal-action flex justify-between">
 					<button
