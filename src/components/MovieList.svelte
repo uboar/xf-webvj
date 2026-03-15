@@ -3,10 +3,10 @@
 
 	let {
 		movieList,
-		searchQuery = $bindable()
+		searchQuery = $bindable('')
 	}: {
 		movieList: string[];
-		searchQuery?: string;
+		searchQuery: string;
 	} = $props();
 
 	const dispatch = createEventDispatcher();

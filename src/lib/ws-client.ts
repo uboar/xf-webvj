@@ -1,45 +1,73 @@
-import { PUBLIC_WS_SERVER_PORT } from "$env/static/public"
-import type { WSMessage } from "./types"
+import { PUBLIC_WS_SERVER_PORT } from '$env/static/public';
+import type { WSMessage } from './types';
 
 type WSEvent = {
-  to: string
-  function: string
-  event: (self: WSClientConnection, body?: object) => void
-}
+	to: string;
+	function: string;
+	event: (self: WSClientConnection, body?: object) => void;
+};
+
+const getEventKey = (event: Pick<WSEvent, 'to' | 'function'>) => `${event.to}:${event.function}`;
 
 export class WSClientConnection {
-  public ws: WebSocket
-  public connect: Promise<void>
-  private events: WSEvent[] = []
+	public ws: WebSocket;
+	public connect: Promise<void>;
+	private events = new Map<string, Set<WSEvent>>();
 
-  constructor() {
-    this.ws = new WebSocket(`ws://${window.location.hostname}:${PUBLIC_WS_SERVER_PORT}`)
-    this.connect = new Promise((resolve, reject) => {
-      this.ws.onmessage = (event) => {
-        const req = JSON.parse(event.data) as WSMessage
-        this.events.forEach((val) => {
-          if ((val.to === req.to) && (val.function === req.function)) {
-            val.event(this, req.body)
-          }
-        })
-      }
-      this.ws.onopen = () => {
-        resolve();
-      }
-    })
-  }
+	constructor() {
+		this.ws = new WebSocket(`ws://${window.location.hostname}:${PUBLIC_WS_SERVER_PORT}`);
+		this.connect = new Promise((resolve, reject) => {
+			this.ws.onmessage = (event) => {
+				const req = JSON.parse(event.data) as WSMessage;
+				const handlers = this.events.get(getEventKey(req));
 
-  public send = (req: WSMessage) => {
-    this.ws.send(JSON.stringify(req))
-  }
+				handlers?.forEach((handler) => {
+					handler.event(this, req.body);
+				});
+			};
 
-  public attachEvent = (event: WSEvent) => {
-    this.events.push(event)
-  }
+			this.ws.onopen = () => {
+				resolve();
+			};
 
-  public detachEvent = (event: WSEvent) => {
-    if (this.events.includes(event)) {
-      this.events.splice(this.events.indexOf(event), 1)
-    }
-  }
+			this.ws.onerror = (error) => {
+				reject(error);
+			};
+		});
+	}
+
+	public send = (req: WSMessage) => {
+		if (this.ws.readyState !== WebSocket.OPEN) {
+			return;
+		}
+
+		this.ws.send(JSON.stringify(req));
+	};
+
+	public attachEvent = (event: WSEvent) => {
+		const key = getEventKey(event);
+		const currentEvents = this.events.get(key) ?? new Set<WSEvent>();
+		currentEvents.add(event);
+		this.events.set(key, currentEvents);
+	};
+
+	public detachEvent = (event: WSEvent) => {
+		const key = getEventKey(event);
+		const currentEvents = this.events.get(key);
+		if (!currentEvents) {
+			return;
+		}
+
+		currentEvents.delete(event);
+		if (currentEvents.size === 0) {
+			this.events.delete(key);
+		}
+	};
+
+	public destroy = () => {
+		this.events.clear();
+		if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+			this.ws.close();
+		}
+	};
 }

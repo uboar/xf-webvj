@@ -1,43 +1,57 @@
-import { readFileSync, createReadStream, statSync } from "fs";
-import { resolve } from 'path';
-import { Readable } from "stream";
-import { PUBLIC_MOVIE_PATH } from "$env/static/public";
+import { createReadStream, statSync } from 'fs';
+import { Readable } from 'stream';
+import type { RequestHandler } from './$types';
+import { PUBLIC_MOVIE_PATH } from '$env/static/public';
+import { errorResponse } from '$lib/server/http';
+import { MovieFileError, resolveMovieFilePath } from '$lib/server/movie-files';
 
-export async function GET({ url, request }) {
-  const path = url.searchParams.get('video')!
-  if (path == null)
-    return new Response(null, { status: 400 });
+export const GET: RequestHandler = async ({ url, request }) => {
+	const fileName = url.searchParams.get('video');
 
-  const videoPath = resolve(PUBLIC_MOVIE_PATH, path);
-  try {
-    const stats = statSync(videoPath);
-    const fileSize = stats.size;
-    const range = request.headers.get('range');
-  
-    if (range) {
-      const parts = range.replace(/bytes=/, '').split('-');
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-      const chunkSize = (end - start) + 1;
-      const fileStream = createReadStream(videoPath, { start, end });
-      
-      const head = {
-        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunkSize.toString(),
-        'Content-Type': 'video/mp4',
-      };
-      return new Response(Readable.toWeb(fileStream) as ReadableStream, { status: 206, headers: head });
+	if (!fileName) {
+		return errorResponse(400, 'video パラメータが必要です');
+	}
 
-    } else {
-      const head = {
-        'Content-Length': fileSize.toString(),
-        'Content-Type': 'video/mp4',
-      };
-      return new Response(readFileSync(videoPath), { status: 200, headers: head });
-    }
-  } catch(e) {
-    console.error(e)
-    return new Response(null, { status: 404 });
-  }
-}
+	try {
+		const videoPath = resolveMovieFilePath(fileName, PUBLIC_MOVIE_PATH);
+		const { size: fileSize } = statSync(videoPath);
+		const range = request.headers.get('range');
+
+		if (!range) {
+			const fileStream = createReadStream(videoPath);
+			return new Response(Readable.toWeb(fileStream) as ReadableStream, {
+				status: 200,
+				headers: {
+					'Accept-Ranges': 'bytes',
+					'Content-Length': fileSize.toString(),
+					'Content-Type': 'video/mp4'
+				}
+			});
+		}
+
+		const [startText, endText] = range.replace(/bytes=/, '').split('-');
+		const start = Number.parseInt(startText, 10);
+		const end = endText ? Number.parseInt(endText, 10) : fileSize - 1;
+
+		if (Number.isNaN(start) || Number.isNaN(end) || start < 0 || end >= fileSize || start > end) {
+			return errorResponse(416, '無効な range ヘッダーです');
+		}
+
+		const fileStream = createReadStream(videoPath, { start, end });
+		return new Response(Readable.toWeb(fileStream) as ReadableStream, {
+			status: 206,
+			headers: {
+				'Accept-Ranges': 'bytes',
+				'Content-Length': String(end - start + 1),
+				'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+				'Content-Type': 'video/mp4'
+			}
+		});
+	} catch (error) {
+		if (error instanceof MovieFileError) {
+			return errorResponse(error.status, error.message);
+		}
+		console.error('Error streaming movie:', error);
+		return errorResponse(404, '動画ファイルが見つかりません');
+	}
+};

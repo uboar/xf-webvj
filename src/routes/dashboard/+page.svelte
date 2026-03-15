@@ -135,6 +135,7 @@
 		// コンポーネントのアンマウント時にイベントリスナーを削除
 		return () => {
 			window.removeEventListener('keydown', handleKeyDown);
+			wsClient?.destroy();
 		};
 	});
 

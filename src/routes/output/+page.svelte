@@ -68,6 +68,7 @@
 		return () => {
 			window.removeEventListener('beforeunload', notifyDisconnection);
 			notifyDisconnection(); // アンマウント時にも接続解除を通知
+			wsClient?.destroy();
 		};
 	});
 

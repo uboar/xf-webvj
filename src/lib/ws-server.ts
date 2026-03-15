@@ -1,198 +1,190 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import type { DeckType, WSMessage } from './types';
+import type { DeckType, OpacityControlMessage, OpacityState, WSMessage } from './types';
 
 type webSocketServerType = {
-  wss?: WebSocketServer;
-  start: (port: number) => WebSocketServer;
-}
+	wss?: WebSocketServer;
+	start: (port: number) => WebSocketServer;
+};
 
-let wssList: WebSocketServer[] = [];
 let decksSrvState: DeckType[] = [
-  {
-    prefix: "1",
-    movie: "",
-    playing: false,
-    opacity: 1.0,
-    repeat: false,
-  },
-  {
-    prefix: "2",
-    movie: "",
-    playing: false,
-    opacity: 1.0,
-    repeat: false,
-  }
-]
+	{
+		prefix: '1',
+		movie: '',
+		playing: false,
+		opacity: 1.0,
+		repeat: false
+	},
+	{
+		prefix: '2',
+		movie: '',
+		playing: false,
+		opacity: 1.0,
+		repeat: false
+	}
+];
 
-// 統合された透明度状態管理
-let opacityState = {
-  deck1BaseOpacity: 1.0,
-  deck2BaseOpacity: 1.0,
-  crossfadeValue: 0.5
-}
-// 動画読み込み状態の追跡
+let opacityState: OpacityState = {
+	deck1BaseOpacity: 1.0,
+	deck2BaseOpacity: 1.0,
+	crossfadeValue: 0.5
+};
+
 let videoLoadingStates = [false, false];
-
-// 出力ページの接続状態を追跡
 let outputPageConnected = false;
 
+const syncOutputConnectionStatus = () => {
+	send({
+		to: 'dashboard',
+		function: 'output-connection-status',
+		body: { connected: outputPageConnected }
+	});
+};
+
+const syncDeckState = () => {
+	send({
+		to: 'dashboard',
+		function: 'get-deck-state',
+		body: decksSrvState
+	});
+	send({
+		to: 'output',
+		function: 'get-deck-state',
+		body: decksSrvState
+	});
+};
+
+const syncLoadingState = () => {
+	send({
+		to: 'dashboard',
+		function: 'video-loading-status',
+		body: { loadingStates: videoLoadingStates }
+	});
+};
+
+const syncOpacityState = () => {
+	send({
+		to: 'output',
+		function: 'update-opacity',
+		body: {
+			deck1: opacityState.deck1BaseOpacity,
+			deck2: opacityState.deck2BaseOpacity * opacityState.crossfadeValue,
+			opacityState
+		}
+	});
+	send({
+		to: 'dashboard',
+		function: 'opacity-state-sync',
+		body: opacityState
+	});
+};
+
+const updateOpacityState = (message: OpacityControlMessage) => {
+	if (message.type === 'deck' && message.deckIndex !== undefined) {
+		if (message.deckIndex === 0) {
+			opacityState.deck1BaseOpacity = message.opacity;
+			decksSrvState[0].opacity = message.opacity;
+		} else if (message.deckIndex === 1) {
+			opacityState.deck2BaseOpacity = message.opacity;
+			decksSrvState[1].opacity = message.opacity;
+		}
+		return;
+	}
+
+	if (message.type === 'crossfade') {
+		opacityState.crossfadeValue = message.opacity;
+	}
+};
+
 const handle = (message: WSMessage) => {
-  if (message.to === "server") {
-    switch (message.function) {
-      case "output-page-connected":
-        // 出力ページの接続状態を更新
-        outputPageConnected = message.body ? (message.body as { connected: boolean }).connected : false;
-        
-        // ダッシュボードに接続状態を通知
-        send({
-          to: "dashboard",
-          function: "output-connection-status",
-          body: { connected: outputPageConnected }
-        });
-        break;
-      case "get-deck-state":
-        send({
-          to: "dashboard",
-          function: "get-deck-state",
-          body: decksSrvState
-        })
-        send({
-          to: "output",
-          function: "get-deck-state",
-          body: decksSrvState
-        })
-        
-        // 接続状態も送信
-        send({
-          to: "dashboard",
-          function: "output-connection-status",
-          body: { connected: outputPageConnected }
-        });
-        break;
-      case "update-deck-state":
-        if (message.body) {
-          decksSrvState = message.body as DeckType[]
-        }
-        send({
-          to: "output",
-          function: "get-deck-state",
-          body: decksSrvState
-        })
-        break;
-      case "update-movie-state":
-        if (message.body) {
-          decksSrvState = message.body as DeckType[]
-        }
-        send({
-          to: "dashboard",
-          function: "get-deck-state",
-          body: decksSrvState
-        })
-        break;
-      case "update-opacity":
-        if (message.body) {
-          const opacityMsg = message.body as { type: string; deckIndex?: number; opacity: number };
-          
-          // 透明度状態を更新
-          if (opacityMsg.type === 'deck' && opacityMsg.deckIndex !== undefined) {
-            if (opacityMsg.deckIndex === 0) {
-              opacityState.deck1BaseOpacity = opacityMsg.opacity;
-              // サーバー側のデッキ状態も更新（透明度のみ）
-              decksSrvState[0].opacity = opacityMsg.opacity;
-            } else if (opacityMsg.deckIndex === 1) {
-              opacityState.deck2BaseOpacity = opacityMsg.opacity;
-              // サーバー側のデッキ状態も更新（透明度のみ）
-              decksSrvState[1].opacity = opacityMsg.opacity;
-            }
-          } else if (opacityMsg.type === 'crossfade') {
-            opacityState.crossfadeValue = opacityMsg.opacity;
-          }
-          
-          // 最終透明度を計算
-          const finalOpacities = {
-            deck1: opacityState.deck1BaseOpacity,
-            deck2: opacityState.deck2BaseOpacity * opacityState.crossfadeValue,
-            opacityState: opacityState
-          };
-          
-          // 出力画面に送信（透明度のみ更新）
-          send({
-            to: "output",
-            function: "update-opacity",
-            body: finalOpacities
-          });
-          
-          // ダッシュボードにも状態を同期（透明度のみ）
-          send({
-            to: "dashboard",
-            function: "opacity-state-sync",
-            body: opacityState
-          });
-        }
-        break;
-      case "update-loading-state":
-        if (message.body) {
-          const loadingState = message.body as { loadingStates: boolean[] };
-          videoLoadingStates = loadingState.loadingStates;
-          
-          // ダッシュボードに読み込み状態を通知
-          send({
-            to: "dashboard",
-            function: "video-loading-status",
-            body: { loadingStates: videoLoadingStates }
-          });
-        }
-        break;
-    }
-  }
-}
+	if (message.to !== 'server') {
+		return;
+	}
+
+	switch (message.function) {
+		case 'output-page-connected':
+			outputPageConnected = message.body
+				? (message.body as { connected: boolean }).connected
+				: false;
+			syncOutputConnectionStatus();
+			break;
+		case 'get-deck-state':
+			syncDeckState();
+			syncOutputConnectionStatus();
+			syncLoadingState();
+			syncOpacityState();
+			break;
+		case 'update-deck-state':
+			if (message.body) {
+				decksSrvState = message.body as DeckType[];
+			}
+			send({
+				to: 'output',
+				function: 'get-deck-state',
+				body: decksSrvState
+			});
+			break;
+		case 'update-movie-state':
+			if (message.body) {
+				decksSrvState = message.body as DeckType[];
+			}
+			send({
+				to: 'dashboard',
+				function: 'get-deck-state',
+				body: decksSrvState
+			});
+			break;
+		case 'update-opacity':
+			if (message.body) {
+				updateOpacityState(message.body as OpacityControlMessage);
+				syncOpacityState();
+			}
+			break;
+		case 'update-loading-state':
+			if (message.body) {
+				videoLoadingStates = (message.body as { loadingStates: boolean[] }).loadingStates;
+				syncLoadingState();
+			}
+			break;
+	}
+};
 
 export const webSocketServer: webSocketServerType = {
-  start: (port) => {
-    const wss = new WebSocketServer({ port });
+	start: (port) => {
+		if (webSocketServer.wss) {
+			return webSocketServer.wss;
+		}
 
-    wss.on('connection', ws => {
-      wssList.push(wss);
+		const wss = new WebSocketServer({ port });
 
-      ws.on('message', messageData => {
-        const message = JSON.parse(messageData.toString()) as WSMessage;
-        handle(message)
-      });
+		wss.on('connection', (ws) => {
+			ws.on('message', (messageData) => {
+				try {
+					handle(JSON.parse(messageData.toString()) as WSMessage);
+				} catch (error) {
+					console.error('Invalid WebSocket message:', error);
+				}
+			});
 
-      ws.on('close', () => {
-        wssList = wssList.filter(item => item !== wss);
-      });
+			ws.on('error', (error) => {
+				console.error('WebSocket Error:', error);
+			});
 
-      ws.on('error', error => {
-        console.error('WebSocket Error:', error);
-      })
-    });
-    
-    // 初期状態でダッシュボードに読み込み状態を送信
-    send({
-      to: "dashboard",
-      function: "video-loading-status",
-      body: { loadingStates: videoLoadingStates }
-    });
-    
-    // 初期状態でダッシュボードに出力ページの接続状態を送信
-    send({
-      to: "dashboard",
-      function: "output-connection-status",
-      body: { connected: outputPageConnected }
-    });
-    
-    console.log('WebSocket Server Launched');
-    return wss;
-  }
+			syncDeckState();
+			syncLoadingState();
+			syncOutputConnectionStatus();
+			syncOpacityState();
+		});
+
+		webSocketServer.wss = wss;
+		console.log('WebSocket Server Launched');
+		return wss;
+	}
 };
 
 export const send = (message: WSMessage) => {
-  wssList.forEach(server => {
-    server.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(message));
-      }
-    });
-  });
-}
+	webSocketServer.wss?.clients.forEach((client) => {
+		if (client.readyState === WebSocket.OPEN) {
+			client.send(JSON.stringify(message));
+		}
+	});
+};
