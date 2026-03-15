@@ -10,17 +10,6 @@
 	// 動画読み込み状態の追跡
 	let loadingStates = [false, false];
 
-	// ページが閉じられる前に接続解除を通知する関数
-	const notifyDisconnection = () => {
-		if (wsClient) {
-			wsClient.send({ 
-				to: 'server', 
-				function: 'output-page-connected', 
-				body: { connected: false } 
-			});
-		}
-	};
-
 	onMount(() => {
 		deckElement[0].style.opacity = '1.0';
 		deckElement[1].style.opacity = '0.5';
@@ -51,23 +40,16 @@
 		
 		// WebSocket接続を確立し、接続後の処理を行う
 		wsClient.connect.then(() => {
-			// 出力ページが接続されたことを通知
-			wsClient.send({ 
-				to: 'server', 
-				function: 'output-page-connected', 
-				body: { connected: true } 
+			wsClient.send({
+				to: 'server',
+				function: 'register-client',
+				body: { role: 'output' }
 			});
-			
 			wsClient.send({ to: 'server', function: 'get-deck-state' });
 		});
-		
-		// beforeunloadイベントリスナーを追加
-		window.addEventListener('beforeunload', notifyDisconnection);
-		
+
 		// コンポーネントのアンマウント時にイベントリスナーを削除
 		return () => {
-			window.removeEventListener('beforeunload', notifyDisconnection);
-			notifyDisconnection(); // アンマウント時にも接続解除を通知
 			wsClient?.destroy();
 		};
 	});

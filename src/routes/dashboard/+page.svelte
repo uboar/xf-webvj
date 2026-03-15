@@ -121,7 +121,7 @@
 			function: 'output-connection-status',
 			event: (ws, body) => {
 				if (body) {
-					const status = body as { connected: boolean };
+					const status = body as { connected: boolean; count?: number };
 					outputPageConnected = status.connected;
 				}
 			}
@@ -129,6 +129,11 @@
 		
 		// WebSocket接続を確立し、接続後の処理を行う
 		wsClient?.connect.then(() => {
+			wsClient?.send({
+				to: 'server',
+				function: 'register-client',
+				body: { role: 'dashboard' }
+			});
 			wsClient?.send({ to: 'server', function: 'get-deck-state' });
 		});
 

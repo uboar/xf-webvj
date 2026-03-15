@@ -1,9 +1,20 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import type { DeckType, OpacityControlMessage, OpacityState, WSMessage } from './types';
+import type {
+	DeckType,
+	OpacityControlMessage,
+	OpacityState,
+	WSClientRole,
+	WSMessage
+} from './types';
 
-type webSocketServerType = {
+type WebSocketServerType = {
 	wss?: WebSocketServer;
 	start: (port: number) => WebSocketServer;
+};
+
+type ConnectionStatusBody = {
+	connected: boolean;
+	count: number;
 };
 
 let decksSrvState: DeckType[] = [
@@ -30,23 +41,57 @@ let opacityState: OpacityState = {
 };
 
 let videoLoadingStates = [false, false];
-let outputPageConnected = false;
+
+const clientRoles = new Map<WebSocket, WSClientRole>();
+
+const getRoleClientCount = (role: WSClientRole) =>
+	Array.from(clientRoles.values()).filter((clientRole) => clientRole === role).length;
+
+const getOutputConnectionStatus = (): ConnectionStatusBody => {
+	const count = getRoleClientCount('output');
+	return {
+		connected: count > 0,
+		count
+	};
+};
+
+const sendToRole = (role: WSClientRole, message: WSMessage) => {
+	webSocketServer.wss?.clients.forEach((client) => {
+		if (client.readyState !== WebSocket.OPEN) {
+			return;
+		}
+
+		if (clientRoles.get(client) !== role) {
+			return;
+		}
+
+		client.send(JSON.stringify(message));
+	});
+};
+
+const sendToClient = (client: WebSocket, message: WSMessage) => {
+	if (client.readyState !== WebSocket.OPEN) {
+		return;
+	}
+
+	client.send(JSON.stringify(message));
+};
 
 const syncOutputConnectionStatus = () => {
-	send({
+	sendToRole('dashboard', {
 		to: 'dashboard',
 		function: 'output-connection-status',
-		body: { connected: outputPageConnected }
+		body: getOutputConnectionStatus()
 	});
 };
 
 const syncDeckState = () => {
-	send({
+	sendToRole('dashboard', {
 		to: 'dashboard',
 		function: 'get-deck-state',
 		body: decksSrvState
 	});
-	send({
+	sendToRole('output', {
 		to: 'output',
 		function: 'get-deck-state',
 		body: decksSrvState
@@ -54,7 +99,7 @@ const syncDeckState = () => {
 };
 
 const syncLoadingState = () => {
-	send({
+	sendToRole('dashboard', {
 		to: 'dashboard',
 		function: 'video-loading-status',
 		body: { loadingStates: videoLoadingStates }
@@ -62,7 +107,7 @@ const syncLoadingState = () => {
 };
 
 const syncOpacityState = () => {
-	send({
+	sendToRole('output', {
 		to: 'output',
 		function: 'update-opacity',
 		body: {
@@ -71,11 +116,54 @@ const syncOpacityState = () => {
 			opacityState
 		}
 	});
-	send({
+	sendToRole('dashboard', {
 		to: 'dashboard',
 		function: 'opacity-state-sync',
 		body: opacityState
 	});
+};
+
+const syncStateToClient = (client: WebSocket, role?: WSClientRole) => {
+	switch (role) {
+		case 'dashboard':
+			sendToClient(client, {
+				to: 'dashboard',
+				function: 'get-deck-state',
+				body: decksSrvState
+			});
+			sendToClient(client, {
+				to: 'dashboard',
+				function: 'video-loading-status',
+				body: { loadingStates: videoLoadingStates }
+			});
+			sendToClient(client, {
+				to: 'dashboard',
+				function: 'output-connection-status',
+				body: getOutputConnectionStatus()
+			});
+			sendToClient(client, {
+				to: 'dashboard',
+				function: 'opacity-state-sync',
+				body: opacityState
+			});
+			break;
+		case 'output':
+			sendToClient(client, {
+				to: 'output',
+				function: 'get-deck-state',
+				body: decksSrvState
+			});
+			sendToClient(client, {
+				to: 'output',
+				function: 'update-opacity',
+				body: {
+					deck1: opacityState.deck1BaseOpacity,
+					deck2: opacityState.deck2BaseOpacity * opacityState.crossfadeValue,
+					opacityState
+				}
+			});
+			break;
+	}
 };
 
 const updateOpacityState = (message: OpacityControlMessage) => {
@@ -95,29 +183,42 @@ const updateOpacityState = (message: OpacityControlMessage) => {
 	}
 };
 
-const handle = (message: WSMessage) => {
+const handle = (ws: WebSocket, message: WSMessage) => {
 	if (message.to !== 'server') {
 		return;
 	}
 
 	switch (message.function) {
-		case 'output-page-connected':
-			outputPageConnected = message.body
-				? (message.body as { connected: boolean }).connected
-				: false;
-			syncOutputConnectionStatus();
+		case 'register-client': {
+			const role = (message.body as { role?: WSClientRole } | undefined)?.role;
+			if (!role) {
+				return;
+			}
+
+			clientRoles.set(ws, role);
+			syncStateToClient(ws, role);
+			if (role === 'output') {
+				syncOutputConnectionStatus();
+			}
 			break;
-		case 'get-deck-state':
-			syncDeckState();
-			syncOutputConnectionStatus();
-			syncLoadingState();
-			syncOpacityState();
+		}
+		case 'get-deck-state': {
+			const role = clientRoles.get(ws);
+			if (role) {
+				syncStateToClient(ws, role);
+			} else {
+				syncDeckState();
+				syncOutputConnectionStatus();
+				syncLoadingState();
+				syncOpacityState();
+			}
 			break;
+		}
 		case 'update-deck-state':
 			if (message.body) {
 				decksSrvState = message.body as DeckType[];
 			}
-			send({
+			sendToRole('output', {
 				to: 'output',
 				function: 'get-deck-state',
 				body: decksSrvState
@@ -127,7 +228,7 @@ const handle = (message: WSMessage) => {
 			if (message.body) {
 				decksSrvState = message.body as DeckType[];
 			}
-			send({
+			sendToRole('dashboard', {
 				to: 'dashboard',
 				function: 'get-deck-state',
 				body: decksSrvState
@@ -148,7 +249,7 @@ const handle = (message: WSMessage) => {
 	}
 };
 
-export const webSocketServer: webSocketServerType = {
+export const webSocketServer: WebSocketServerType = {
 	start: (port) => {
 		if (webSocketServer.wss) {
 			return webSocketServer.wss;
@@ -159,20 +260,23 @@ export const webSocketServer: webSocketServerType = {
 		wss.on('connection', (ws) => {
 			ws.on('message', (messageData) => {
 				try {
-					handle(JSON.parse(messageData.toString()) as WSMessage);
+					handle(ws, JSON.parse(messageData.toString()) as WSMessage);
 				} catch (error) {
 					console.error('Invalid WebSocket message:', error);
+				}
+			});
+
+			ws.on('close', () => {
+				const role = clientRoles.get(ws);
+				clientRoles.delete(ws);
+				if (role === 'output') {
+					syncOutputConnectionStatus();
 				}
 			});
 
 			ws.on('error', (error) => {
 				console.error('WebSocket Error:', error);
 			});
-
-			syncDeckState();
-			syncLoadingState();
-			syncOutputConnectionStatus();
-			syncOpacityState();
 		});
 
 		webSocketServer.wss = wss;

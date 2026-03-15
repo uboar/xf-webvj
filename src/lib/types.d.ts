@@ -21,6 +21,8 @@ export type WSMessage = {
   body?: object
 }
 
+export type WSClientRole = 'dashboard' | 'output'
+
 export type OpacityState = {
   deck1BaseOpacity: number
   deck2BaseOpacity: number
