@@ -44,6 +44,11 @@ let videoLoadingStates = [false, false];
 
 const clientRoles = new Map<WebSocket, WSClientRole>();
 
+const getRenderedDeckOpacities = () => ({
+	deck1: opacityState.deck1BaseOpacity * (1 - opacityState.crossfadeValue),
+	deck2: opacityState.deck2BaseOpacity * opacityState.crossfadeValue
+});
+
 const getRoleClientCount = (role: WSClientRole) =>
 	Array.from(clientRoles.values()).filter((clientRole) => clientRole === role).length;
 
@@ -107,12 +112,14 @@ const syncLoadingState = () => {
 };
 
 const syncOpacityState = () => {
+	const renderedOpacities = getRenderedDeckOpacities();
+
 	sendToRole('output', {
 		to: 'output',
 		function: 'update-opacity',
 		body: {
-			deck1: opacityState.deck1BaseOpacity,
-			deck2: opacityState.deck2BaseOpacity * opacityState.crossfadeValue,
+			deck1: renderedOpacities.deck1,
+			deck2: renderedOpacities.deck2,
 			opacityState
 		}
 	});
@@ -147,7 +154,8 @@ const syncStateToClient = (client: WebSocket, role?: WSClientRole) => {
 				body: opacityState
 			});
 			break;
-		case 'output':
+		case 'output': {
+			const renderedOpacities = getRenderedDeckOpacities();
 			sendToClient(client, {
 				to: 'output',
 				function: 'get-deck-state',
@@ -157,12 +165,13 @@ const syncStateToClient = (client: WebSocket, role?: WSClientRole) => {
 				to: 'output',
 				function: 'update-opacity',
 				body: {
-					deck1: opacityState.deck1BaseOpacity,
-					deck2: opacityState.deck2BaseOpacity * opacityState.crossfadeValue,
+					deck1: renderedOpacities.deck1,
+					deck2: renderedOpacities.deck2,
 					opacityState
 				}
 			});
 			break;
+		}
 	}
 };
 

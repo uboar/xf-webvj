@@ -11,7 +11,7 @@
 	let loadingStates = [false, false];
 
 	onMount(() => {
-		deckElement[0].style.opacity = '1.0';
+		deckElement[0].style.opacity = '0.5';
 		deckElement[1].style.opacity = '0.5';
 		wsClient = new WSClientConnection();
 		wsClient.attachEvent({
