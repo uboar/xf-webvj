@@ -178,6 +178,10 @@
 		dispatch('openrenamemodal', { movie });
 	};
 
+	const addToPlaylist = (movie: string) => {
+		dispatch('addtoplaylist', { movie });
+	};
+
 	const getMovieList = () => {
 		dispatch('getmovielist');
 	};
@@ -264,13 +268,14 @@
 			<tr>
 				<th class="w-20 sm:w-auto whitespace-nowrap">Deck 1</th>
 				<th>Name</th>
+				<th class="w-24 sm:w-auto whitespace-nowrap">Playlist</th>
 				<th class="w-20 sm:w-auto whitespace-nowrap">Deck 2</th>
 			</tr>
 		</thead>
 		<tbody>
 			{#if filteredMovieList.length === 0}
 				<tr>
-					<td colspan="3" class="text-base-content/70 py-8 text-center">
+					<td colspan="4" class="text-base-content/70 py-8 text-center">
 						{#if searchQuery}
 							<div class="flex flex-col items-center gap-2">
 								<svg
@@ -318,7 +323,7 @@
 				{#each visibleRows as row}
 					{#if row.type === 'folder'}
 						<tr class="bg-base-200/40">
-							<td colspan="3" class="px-1 sm:px-4">
+							<td colspan="4" class="px-1 sm:px-4">
 								<button
 									class="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs sm:text-sm"
 									on:click={() => toggleFolder(row.path)}
@@ -397,6 +402,14 @@
 										</span>
 									</span>
 								</span>
+							</td>
+							<td class="px-1 sm:px-4">
+								<button
+									class="btn btn-xs sm:btn-sm btn-primary w-full rounded-full"
+									on:click={() => addToPlaylist(row.path)}
+								>
+									追加
+								</button>
 							</td>
 							<td class="px-1 sm:px-4">
 								<button

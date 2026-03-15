@@ -9,7 +9,9 @@
 	import TabNavigation from '../../components/TabNavigation.svelte';
 	import DeckPreview from '../../components/DeckPreview.svelte';
 	import MidiSettings from '../../components/MidiSettings.svelte';
+	import PlaylistManager from '../../components/PlaylistManager.svelte';
 	import { onXfdChange, onDeck1OpacityChange, onDeck2OpacityChange, updateCurrentValues } from '$lib/midi';
+	import type { PlaylistFile } from '$lib/types';
 
 	let movieList: string[] = $state([]);
 	let wsClient: WSClientConnection | undefined = $state();
@@ -34,6 +36,7 @@
 
 	// タブ切り替え用の状態
 	let activeTab = $state('movies'); // 'movies' または 'download'
+	let playlist = $state<string[]>([]);
 
 	let decks: DeckType[] = $state([]);
 
@@ -219,6 +222,68 @@
 		movieList = await res.json();
 	};
 
+	const addToPlaylist = (movie: string) => {
+		playlist = [...playlist, movie];
+	};
+
+	const reorderPlaylistItem = (fromIndex: number, toIndex: number) => {
+		if (fromIndex < 0 || fromIndex >= playlist.length) return;
+		if (toIndex < 0 || toIndex >= playlist.length) return;
+		if (fromIndex === toIndex) return;
+
+		const nextPlaylist = [...playlist];
+		const [item] = nextPlaylist.splice(fromIndex, 1);
+		nextPlaylist.splice(toIndex, 0, item);
+		playlist = nextPlaylist;
+	};
+
+	const removePlaylistItem = (index: number) => {
+		playlist = playlist.filter((_, itemIndex) => itemIndex !== index);
+	};
+
+	const clearPlaylist = () => {
+		playlist = [];
+	};
+
+	const downloadPlaylist = () => {
+		const payload: PlaylistFile = {
+			version: 1,
+			items: playlist
+		};
+		const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const anchor = document.createElement('a');
+		const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+		anchor.href = url;
+		anchor.download = `playlist-${timestamp}.json`;
+		anchor.click();
+		URL.revokeObjectURL(url);
+	};
+
+	const importPlaylist = async (file: File) => {
+		try {
+			const text = await file.text();
+			const parsed = JSON.parse(text) as Partial<PlaylistFile> | string[];
+			const items = Array.isArray(parsed)
+				? parsed
+				: Array.isArray(parsed.items)
+					? parsed.items
+					: null;
+
+			if (!items || !items.every((item) => typeof item === 'string')) {
+				alert('プレイリストJSONの形式が不正です。');
+				return;
+			}
+
+			playlist = [...items];
+			activeTab = 'playlist';
+		} catch (error) {
+			console.error('Failed to import playlist:', error);
+			alert('プレイリストJSONの読み込みに失敗しました。');
+		}
+	};
+
 	const loadMovie = (deck: number, name: string) => {
 		decks[deck].movie = name;
 		decks[deck].playing = false;
@@ -274,6 +339,7 @@
 					decks[1].movie = targetMovieName;
 					sendDeckState();
 				}
+				playlist = playlist.map((movie) => (movie === selectedMovie ? targetMovieName : movie));
 
 				// リストを更新
 				await getMovieList();
@@ -322,6 +388,7 @@
 					decks[1].position = undefined;
 					sendDeckState();
 				}
+				playlist = playlist.filter((movie) => movie !== selectedMovie);
 
 				// リストを更新
 				await getMovieList();
@@ -482,9 +549,21 @@
 			{movieList}
 			bind:searchQuery
 			on:loadmovie={(e) => loadMovie(e.detail.deck, e.detail.movie)}
+			on:addtoplaylist={(e) => addToPlaylist(e.detail.movie)}
 			on:openrenamemodal={(e) => openRenameModal(e.detail.movie)}
 			on:getmovielist={getMovieList}
 			on:changetab={(e) => (activeTab = e.detail.tab)}
+		/>
+	{:else if activeTab === 'playlist'}
+		<PlaylistManager
+			{playlist}
+			{movieList}
+			on:loadmovie={(e) => loadMovie(e.detail.deck, e.detail.movie)}
+			on:reorderitem={(e) => reorderPlaylistItem(e.detail.fromIndex, e.detail.toIndex)}
+			on:removeitem={(e) => removePlaylistItem(e.detail.index)}
+			on:downloadplaylist={downloadPlaylist}
+			on:importplaylist={(e) => importPlaylist(e.detail.file)}
+			on:clearplaylist={clearPlaylist}
 		/>
 	{:else if activeTab === 'preview'}
 		{#if wsClient && decks.length >= 2}

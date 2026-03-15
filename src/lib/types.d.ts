@@ -33,6 +33,11 @@ export type OpacityControlMessage = {
   opacity: number
 }
 
+export type PlaylistFile = {
+  version: 1
+  items: string[]
+}
+
 // Web MIDI API types
 declare namespace WebMidi {
   interface MIDIOptions {

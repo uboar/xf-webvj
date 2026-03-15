@@ -32,6 +32,26 @@
 		<span class="text-xs sm:text-sm">動画リスト</span>
 	</button>
 	<button
+		class={`tab ${activeTab === 'playlist' ? 'tab-active' : ''}`}
+		on:click={() => changeTab('playlist')}
+	>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			fill="none"
+			viewBox="0 0 24 24"
+			stroke-width="1.5"
+			stroke="currentColor"
+			class="mr-1 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5"
+		>
+			<path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				d="M9 6.75h11.25M9 12h11.25m-11.25 5.25h11.25M3.75 6.75h.008v.008H3.75V6.75Zm0 5.25h.008v.008H3.75V12Zm0 5.25h.008v.008H3.75v-.008Z"
+			/>
+		</svg>
+		<span class="text-xs sm:text-sm">プレイリスト</span>
+	</button>
+	<button
 		class={`tab ${activeTab === 'preview' ? 'tab-active' : ''}`}
 		on:click={() => changeTab('preview')}
 	>
