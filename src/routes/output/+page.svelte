@@ -1,44 +1,340 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { WSClientConnection } from '$lib/ws-client';
 	import type { DeckType } from '$lib/types';
+	import { extractYouTubeVideoId, loadYouTubeIframeApi } from '$lib/youtube';
 
-	let deckElement: HTMLVideoElement[] = [];
+	let localVideoElements: Array<HTMLVideoElement | null> = [];
+	let youtubeContainers: Array<HTMLDivElement | null> = [];
+	let deckLayers: Array<HTMLDivElement | null> = [];
+	let youtubePlayers: Array<YT.Player | null> = [null, null];
 	let decks: DeckType[] = [];
 	let wsClient: WSClientConnection;
-	
-	// 動画読み込み状態の追跡
 	let loadingStates = [false, false];
+	let youtubePositionSnapshot = [0, 0];
+	let youtubeSyncTimer: number | undefined;
+
+	const getSourceType = (deck?: DeckType) => deck?.sourceType ?? 'local';
+
+	const sendLoadingState = () => {
+		wsClient?.send({
+			to: 'server',
+			function: 'update-loading-state',
+			body: { loadingStates }
+		});
+	};
+
+	const sendMovieState = () => {
+		wsClient?.send({ to: 'server', function: 'update-movie-state', body: decks });
+	};
+
+	const setDeckOpacity = (deckIndex: number, opacity: number) => {
+		const layer = deckLayers[deckIndex];
+		if (layer) {
+			layer.style.opacity = opacity.toString();
+		}
+	};
+
+	const cleanupYoutubePlayer = (deckIndex: number) => {
+		youtubePlayers[deckIndex]?.destroy();
+		youtubePlayers[deckIndex] = null;
+		youtubePositionSnapshot[deckIndex] = 0;
+	};
+
+	const handlePlaybackEnded = (deckIndex: number) => {
+		const deck = decks[deckIndex];
+		if (!deck) return;
+
+		if (deck.repeat) {
+			if (getSourceType(deck) === 'youtube') {
+				youtubePlayers[deckIndex]?.seekTo(0, true);
+				youtubePlayers[deckIndex]?.playVideo();
+			} else if (localVideoElements[deckIndex]) {
+				localVideoElements[deckIndex]!.currentTime = 0;
+				void localVideoElements[deckIndex]!.play().catch((error) =>
+					console.error('Local video replay error:', error)
+				);
+			}
+
+			deck.position = 0;
+			sendMovieState();
+			return;
+		}
+
+		if (deck.playing) {
+			deck.playing = false;
+			sendMovieState();
+		}
+	};
+
+	const applyDeckState = (deckIndex: number, nextDeck: DeckType) => {
+		if (getSourceType(nextDeck) === 'youtube') {
+			const player = youtubePlayers[deckIndex];
+			if (!player) return;
+
+			const currentTime = player.getCurrentTime();
+			const currentRate = player.getPlaybackRate();
+			const playerState = player.getPlayerState();
+
+			if (nextDeck.position !== undefined && Math.abs(currentTime - nextDeck.position) > 0.75) {
+				player.seekTo(nextDeck.position, true);
+			}
+
+			if (nextDeck.rate !== undefined && Math.abs(currentRate - nextDeck.rate) > 0.01) {
+				player.setPlaybackRate(nextDeck.rate);
+			}
+
+			if (nextDeck.playing && playerState !== YT.PlayerState.PLAYING) {
+				player.playVideo();
+			} else if (!nextDeck.playing && playerState === YT.PlayerState.PLAYING) {
+				player.pauseVideo();
+			}
+
+			return;
+		}
+
+		const video = localVideoElements[deckIndex];
+		if (!video) return;
+
+		if (nextDeck.position !== undefined && Math.abs(video.currentTime - nextDeck.position) > 0.5) {
+			video.currentTime = nextDeck.position;
+		}
+
+		if (nextDeck.rate !== undefined && video.playbackRate !== nextDeck.rate) {
+			video.playbackRate = nextDeck.rate;
+		}
+
+		if (nextDeck.playing && video.paused) {
+			void video.play().catch((error) => console.error('Local video play error:', error));
+		} else if (!nextDeck.playing && !video.paused) {
+			video.pause();
+		}
+	};
+
+	const loadLocalVideo = (deckIndex: number, moviePath: string) => {
+		const video = localVideoElements[deckIndex];
+		if (!video) return;
+
+		cleanupYoutubePlayer(deckIndex);
+		loadingStates[deckIndex] = true;
+		sendLoadingState();
+		video.src = '/api/get-movie?video=' + encodeURIComponent(moviePath);
+		video.load();
+	};
+
+	const loadYoutubeVideo = async (deckIndex: number, movieUrl: string) => {
+		const videoId = extractYouTubeVideoId(movieUrl);
+		if (!videoId) {
+			console.error(`Invalid YouTube URL for deck ${deckIndex + 1}:`, movieUrl);
+			loadingStates[deckIndex] = false;
+			sendLoadingState();
+			return;
+		}
+
+		loadingStates[deckIndex] = true;
+		sendLoadingState();
+		cleanupYoutubePlayer(deckIndex);
+		await tick();
+
+		const container = youtubeContainers[deckIndex];
+		if (!container) {
+			loadingStates[deckIndex] = false;
+			sendLoadingState();
+			return;
+		}
+
+		try {
+			const YTApi = await loadYouTubeIframeApi();
+			youtubePlayers[deckIndex] = new YTApi.Player(container, {
+				width: '100%',
+				height: '100%',
+				videoId,
+				playerVars: {
+					autoplay: 0,
+					controls: 0,
+					disablekb: 1,
+					modestbranding: 1,
+					playsinline: 1,
+					rel: 0
+				},
+				events: {
+					onReady: (event: YT.PlayerEvent) => {
+						event.target.mute();
+						decks[deckIndex].length = event.target.getDuration() || undefined;
+						decks[deckIndex].position = 0;
+						decks[deckIndex].rate = decks[deckIndex].rate ?? 1;
+						loadingStates[deckIndex] = false;
+						sendLoadingState();
+						sendMovieState();
+						applyDeckState(deckIndex, decks[deckIndex]);
+					},
+					onStateChange: (event: YT.OnStateChangeEvent) => {
+						if (event.data === YT.PlayerState.ENDED) {
+							handlePlaybackEnded(deckIndex);
+							return;
+						}
+
+						if (
+							event.data === YT.PlayerState.PLAYING ||
+							event.data === YT.PlayerState.PAUSED ||
+							event.data === YT.PlayerState.CUED
+						) {
+							decks[deckIndex].length = event.target.getDuration() || undefined;
+						}
+					},
+					onError: (event: YT.OnErrorEvent) => {
+						loadingStates[deckIndex] = false;
+						sendLoadingState();
+						console.error(`YouTube player error on deck ${deckIndex + 1}:`, event.data);
+					}
+				}
+			});
+		} catch (error) {
+			loadingStates[deckIndex] = false;
+			sendLoadingState();
+			console.error(`Failed to initialize YouTube player for deck ${deckIndex + 1}:`, error);
+		}
+	};
+
+	const updateDeck = async (nextDecks: DeckType[]) => {
+		if (nextDecks.length < 2) return;
+
+		const previousDecks = decks;
+		const isInitialLoad = previousDecks.length === 0;
+		decks = nextDecks;
+		await tick();
+
+		if (decks.length === 0) {
+			return;
+		}
+
+		for (let i = 0; i < 2; i++) {
+			const sourceChanged =
+				isInitialLoad ||
+				nextDecks[i].movie !== previousDecks[i]?.movie ||
+				getSourceType(nextDecks[i]) !== getSourceType(previousDecks[i]);
+
+			if (sourceChanged) {
+				if (!nextDecks[i].movie) {
+					cleanupYoutubePlayer(i);
+					if (localVideoElements[i]) {
+						localVideoElements[i]!.removeAttribute('src');
+						localVideoElements[i]!.load();
+					}
+				} else if (getSourceType(nextDecks[i]) === 'youtube') {
+					void loadYoutubeVideo(i, nextDecks[i].movie);
+				} else {
+					loadLocalVideo(i, nextDecks[i].movie);
+				}
+			}
+
+			applyDeckState(i, nextDecks[i]);
+		}
+	};
+
+	const updateUnifiedOpacity = (data: { deck1: number; deck2: number }) => {
+		setDeckOpacity(0, data.deck1);
+		setDeckOpacity(1, data.deck2);
+	};
+
+	const loadedLocalMovie = (deckIndex: number) => {
+		const video = localVideoElements[deckIndex];
+		if (!video || !decks[deckIndex]) return;
+
+		decks[deckIndex].length = video.duration || undefined;
+		decks[deckIndex].position = 0;
+		decks[deckIndex].rate = decks[deckIndex].rate ?? 1;
+		decks[deckIndex].playing = false;
+
+		video.currentTime = 0;
+		video.playbackRate = decks[deckIndex].rate ?? 1;
+
+		loadingStates[deckIndex] = false;
+		sendLoadingState();
+		sendMovieState();
+	};
+
+	const localTimeUpdate = (deckIndex: number) => {
+		const video = localVideoElements[deckIndex];
+		if (!video || !decks[deckIndex]) return;
+
+		decks[deckIndex].position = video.currentTime;
+		sendMovieState();
+	};
+
+	const syncYoutubePositions = () => {
+		let changed = false;
+
+		for (let i = 0; i < 2; i++) {
+			if (getSourceType(decks[i]) !== 'youtube') continue;
+
+			const player = youtubePlayers[i];
+			const deck = decks[i];
+			if (!player || !deck) continue;
+
+			const playerState = player.getPlayerState();
+			if (
+				playerState !== YT.PlayerState.PLAYING &&
+				playerState !== YT.PlayerState.PAUSED &&
+				playerState !== YT.PlayerState.BUFFERING &&
+				playerState !== YT.PlayerState.CUED
+			) {
+				continue;
+			}
+
+			const nextPosition = player.getCurrentTime();
+			const nextDuration = player.getDuration() || undefined;
+			const nextRate = player.getPlaybackRate();
+
+			if (Math.abs(youtubePositionSnapshot[i] - nextPosition) > 0.25) {
+				youtubePositionSnapshot[i] = nextPosition;
+				deck.position = nextPosition;
+				changed = true;
+			}
+
+			if (deck.length !== nextDuration) {
+				deck.length = nextDuration;
+				changed = true;
+			}
+
+			if (deck.rate !== nextRate) {
+				deck.rate = nextRate;
+				changed = true;
+			}
+		}
+
+		if (changed) {
+			sendMovieState();
+		}
+	};
 
 	onMount(() => {
-		deckElement[0].style.opacity = '0.5';
-		deckElement[1].style.opacity = '0.5';
+		setDeckOpacity(0, 0.5);
+		setDeckOpacity(1, 0.5);
+
 		wsClient = new WSClientConnection();
 		wsClient.attachEvent({
 			to: 'output',
 			function: 'update-deck-state',
-			event: (ws, body) => {
-				updateDeck(body as DeckType[]);
+			event: (_ws, body) => {
+				void updateDeck(body as DeckType[]);
 			}
 		});
 		wsClient.attachEvent({
 			to: 'output',
 			function: 'update-opacity',
-			event: (ws, body) => {
-				updateUnifiedOpacity(body as { deck1: number; deck2: number; opacityState: any });
-			}
+			event: (_ws, body) => updateUnifiedOpacity(body as { deck1: number; deck2: number })
 		});
 		wsClient.attachEvent({
 			to: 'output',
 			function: 'get-deck-state',
-			event: (ws, body) => {
+			event: (_ws, body) => {
 				if (body) {
-					updateDeck(body as DeckType[]);
+					void updateDeck(body as DeckType[]);
 				}
 			}
 		});
-		
-		// WebSocket接続を確立し、接続後の処理を行う
+
 		wsClient.connect.then(() => {
 			wsClient.send({
 				to: 'server',
@@ -48,199 +344,50 @@
 			wsClient.send({ to: 'server', function: 'get-deck-state' });
 		});
 
-		// コンポーネントのアンマウント時にイベントリスナーを削除
-		return () => {
-			wsClient?.destroy();
-		};
+		youtubeSyncTimer = window.setInterval(syncYoutubePositions, 250);
 	});
 
-	// ロード状態をダッシュボードに通知する
-	const sendLoadingState = () => {
-		if (wsClient) {
-			wsClient.send({
-				to: 'server',
-				function: 'update-loading-state',
-				body: { loadingStates }
-			});
-		}
-	};
-	
-	const updateDeck = (resDeck: DeckType[]) => {
-		if (resDeck.length >= 2 && decks.length == 0) {
-			decks = resDeck;
-			
-			// 初期ロード時に動画があれば読み込み状態を設定
-			if (decks[0].movie) {
-				loadingStates[0] = true;
-				sendLoadingState();
-				deckElement[0].src = '/api/get-movie?video=' + encodeURIComponent(decks[0].movie);
-			}
-			
-			if (decks[1].movie) {
-				loadingStates[1] = true;
-				sendLoadingState();
-				deckElement[1].src = '/api/get-movie?video=' + encodeURIComponent(decks[1].movie);
-			}
+	onDestroy(() => {
+		if (youtubeSyncTimer) {
+			window.clearInterval(youtubeSyncTimer);
 		}
 
-		if (resDeck.length >= 2) {
-			for (let i = 0; i < 2; i++) {
-				if (resDeck[i].movie != decks[i].movie) {
-					// 新しい動画が読み込まれる場合、読み込み状態を設定
-					if (resDeck[i].movie) {
-						loadingStates[i] = true;
-						sendLoadingState();
-					}
-					deckElement[i].src = '/api/get-movie?video=' + encodeURIComponent(resDeck[i].movie);
-				}
-				if (resDeck[i].position != undefined) {
-					deckElement[i].currentTime = resDeck[i].position!;
-				}
-				if (resDeck[i].rate != undefined) {
-					deckElement[i].playbackRate = resDeck[i].rate!;
-				}
-				if (resDeck[i].playing != decks[i].playing) {
-					if (resDeck[i].playing) {
-						deckElement[i].play();
-					} else {
-						deckElement[i].pause();
-					}
-				}
-			}
-
-			decks = resDeck;
-		}
-	};
-
-	const updateUnifiedOpacity = (data: { deck1: number; deck2: number; opacityState: any }) => {
-		if (deckElement[0] && deckElement[1]) {
-			// 現在の再生状態を保存
-			const deck1Playing = !deckElement[0].paused;
-			const deck2Playing = !deckElement[1].paused;
-			const deck1CurrentTime = deckElement[0].currentTime;
-			const deck2CurrentTime = deckElement[1].currentTime;
-			
-			// 透明度のみを更新（再生状態に影響しない）
-			deckElement[0].style.opacity = data.deck1.toString();
-			deckElement[1].style.opacity = data.deck2.toString();
-			
-			// 再生状態が変わっていないことを確認（念のため）
-			if (deck1Playing && deckElement[0].paused) {
-				deckElement[0].currentTime = deck1CurrentTime;
-				deckElement[0].play();
-			}
-			if (deck2Playing && deckElement[1].paused) {
-				deckElement[1].currentTime = deck2CurrentTime;
-				deckElement[1].play();
-			}
-			
-			// デバッグ用（必要に応じてコメントアウト）
-			// console.log('Opacity updated (playback preserved):', { 
-			//	deck1: data.deck1, 
-			//	deck2: data.deck2,
-			//	deck1Playing,
-			//	deck2Playing
-			// });
-		}
-	};
-
-	const loadedMovie = (prefix: number) => {
-		decks[prefix].length = deckElement[prefix].duration;
-		decks[prefix].position = 0;
-		decks[prefix].rate = 1.0;
-		decks[prefix].playing = false;
-
-		deckElement[prefix].currentTime = 0;
-		deckElement[prefix].playbackRate = 1.0;
-
-		// 読み込み完了を設定
-		loadingStates[prefix] = false;
-		sendLoadingState();
-
-		wsClient.send({ to: 'server', function: 'update-movie-state', body: decks });
-	};
-
-	const timeUpdate = (prefix: number) => {
-		decks[prefix].position = deckElement[prefix].currentTime;
-
-		wsClient.send({ to: 'server', function: 'update-movie-state', body: decks });
-	};
-	
-	// 動画が最後まで再生されたときの処理
-	const handleVideoEnded = (prefix: number) => {
-		// リピートモードが有効な場合は最初から再生を継続
-		if (decks[prefix].repeat) {
-			// 現在の位置を0に戻す
-			deckElement[prefix].currentTime = 0;
-			decks[prefix].position = 0;
-			
-			// 再生を継続
-			deckElement[prefix].play();
-			
-			// サーバーに状態変更を通知
-			wsClient.send({ to: 'server', function: 'update-movie-state', body: decks });
-			
-			console.log(`Output: Deck ${decks[prefix].prefix} playback ended, restarting (repeat mode).`);
-		} else {
-			// リピートモードが無効な場合は停止
-			if (decks[prefix].playing) {
-				decks[prefix].playing = false;
-				
-				// サーバーに状態変更を通知
-				wsClient.send({ to: 'server', function: 'update-movie-state', body: decks });
-				
-				console.log(`Output: Deck ${decks[prefix].prefix} playback ended, stopped automatically.`);
-			}
-		}
-	};
+		youtubePlayers.forEach((player) => player?.destroy());
+		wsClient?.destroy();
+	});
 </script>
 
-
 <svelte:head>
-  <title>xf-webvj output</title>
+	<title>xf-webvj output</title>
 </svelte:head>
 
 <div class="h-screen w-screen bg-black">
-	<video
-		bind:this={deckElement[0]}
-		preload="auto"
-		muted
-		class="fixed z-0 w-full transition-all duration-75"
-		onloadeddata={() => {
-			loadedMovie(0);
-		}}
-		ontimeupdate={() => {
-			timeUpdate(0);
-		}}
-		onended={() => {
-			handleVideoEnded(0);
-		}}
-		onerror={() => {
-			// 読み込みエラー時も状態をリセット
-			loadingStates[0] = false;
-			sendLoadingState();
-			console.error('Deck 1: Video loading error');
-		}}
-	></video>
-	<video
-		bind:this={deckElement[1]}
-		preload="auto"
-		muted
-		class="fixed z-10 w-full transition-all duration-75"
-		onloadeddata={() => {
-			loadedMovie(1);
-		}}
-		ontimeupdate={() => {
-			timeUpdate(1);
-		}}
-		onended={() => {
-			handleVideoEnded(1);
-		}}
-		onerror={() => {
-			// 読み込みエラー時も状態をリセット
-			loadingStates[1] = false;
-			sendLoadingState();
-			console.error('Deck 2: Video loading error');
-		}}
-	></video>
+	{#each [0, 1] as deckIndex}
+		<div
+			bind:this={deckLayers[deckIndex]}
+			class={`fixed inset-0 ${deckIndex === 0 ? 'z-0' : 'z-10'} transition-all duration-75`}
+		>
+			{#key `${deckIndex}:${decks[deckIndex]?.sourceType ?? 'local'}:${decks[deckIndex]?.movie ?? ''}`}
+				{#if (decks[deckIndex]?.sourceType ?? 'local') === 'youtube'}
+					<div bind:this={youtubeContainers[deckIndex]} class="h-full w-full"></div>
+				{:else}
+					<!-- svelte-ignore a11y_media_has_caption -->
+					<video
+						bind:this={localVideoElements[deckIndex]}
+						preload="auto"
+						muted
+						class="h-full w-full object-contain"
+						onloadeddata={() => loadedLocalMovie(deckIndex)}
+						ontimeupdate={() => localTimeUpdate(deckIndex)}
+						onended={() => handlePlaybackEnded(deckIndex)}
+						onerror={() => {
+							loadingStates[deckIndex] = false;
+							sendLoadingState();
+							console.error(`Deck ${deckIndex + 1}: Video loading error`);
+						}}
+					></video>
+				{/if}
+			{/key}
+		</div>
+	{/each}
 </div>

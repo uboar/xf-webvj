@@ -3,6 +3,7 @@
 	import Deck from '../../components/Deck.svelte';
 	import type { DeckType, DownloadMovieRequest } from '$lib/types';
 	import { WSClientConnection } from '$lib/ws-client';
+	import { extractYouTubeVideoId } from '$lib/youtube';
 	import MovieList from '../../components/MovieList.svelte';
 	import MovieDownload from '../../components/MovieDownload.svelte';
 	import RenameModal from '../../components/RenameModal.svelte';
@@ -33,6 +34,7 @@
 
 	// 検索機能用の状態
 	let searchQuery = $state('');
+	let youtubeUrls = $state(['', '']);
 
 	// タブ切り替え用の状態
 	let activeTab = $state('movies'); // 'movies' または 'download'
@@ -291,10 +293,28 @@
 
 	const loadMovie = (deck: number, name: string) => {
 		decks[deck].movie = name;
+		decks[deck].sourceType = 'local';
 		decks[deck].playing = false;
 		decks[deck].length = undefined;
 		decks[deck].position = undefined;
 		decks[deck].rate = undefined;
+		sendDeckState();
+	};
+
+	const loadYoutubeMovie = (deck: number) => {
+		const value = youtubeUrls[deck]?.trim() ?? '';
+		const videoId = extractYouTubeVideoId(value);
+		if (!videoId) {
+			alert('有効な YouTube URL または動画IDを入力してください。');
+			return;
+		}
+
+		decks[deck].movie = value;
+		decks[deck].sourceType = 'youtube';
+		decks[deck].playing = false;
+		decks[deck].length = undefined;
+		decks[deck].position = undefined;
+		decks[deck].rate = 1;
 		sendDeckState();
 	};
 
@@ -550,6 +570,38 @@
 	</div>
 
 	{#if activeTab === 'movies'}
+		<div class="border-base-300 border-b px-4 py-4">
+			<div class="mb-3 flex items-center justify-between gap-2">
+				<h3 class="text-md font-semibold">YouTube埋め込み</h3>
+				<span class="text-base-content/70 text-xs">URL または動画IDを各デッキへ直接ロード</span>
+			</div>
+			<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+				{#each [0, 1] as deckIndex}
+					<div class="bg-base-200 rounded-lg border p-3">
+						<div class="mb-2 text-sm font-medium">Deck {deckIndex + 1}</div>
+						<div class="flex gap-2">
+							<input
+								type="text"
+								class="input input-bordered w-full"
+								placeholder="https://www.youtube.com/watch?v=..."
+								bind:value={youtubeUrls[deckIndex]}
+								onkeydown={(event) => {
+									if (event.key === 'Enter') {
+										loadYoutubeMovie(deckIndex);
+									}
+								}}
+							/>
+							<button class="btn btn-primary shrink-0 rounded-full" onclick={() => loadYoutubeMovie(deckIndex)}>
+								Load
+							</button>
+						</div>
+						<div class="text-base-content/60 mt-2 text-xs">
+							埋め込み再生のため、YouTube側の制約で一部動画は再生できない場合があります。
+						</div>
+					</div>
+				{/each}
+			</div>
+		</div>
 		<MovieList
 			{movieList}
 			bind:searchQuery

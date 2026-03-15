@@ -30,6 +30,9 @@
 	if (deckInfo.repeat === undefined) {
 		deckInfo.repeat = false;
 	}
+	if (deckInfo.sourceType === undefined) {
+		deckInfo.sourceType = 'local';
+	}
 
 	const updateSpeed = (speed: number) => {
 		deckInfo.rate = speed;
@@ -159,6 +162,11 @@
 					<h4 class="mb-2 h-10 sm:h-14 text-sm overflow-hidden text-ellipsis">
 						{deckInfo.movie}
 					</h4>
+					<div class="mb-2">
+						<span class="badge badge-outline badge-sm">
+							{deckInfo.sourceType === 'youtube' ? 'YouTube' : 'Local file'}
+						</span>
+					</div>
 					<input
 						type="range"
 						min="0"

@@ -21,6 +21,7 @@ let decksSrvState: DeckType[] = [
 	{
 		prefix: '1',
 		movie: '',
+		sourceType: 'local',
 		playing: false,
 		opacity: 1.0,
 		repeat: false
@@ -28,6 +29,7 @@ let decksSrvState: DeckType[] = [
 	{
 		prefix: '2',
 		movie: '',
+		sourceType: 'local',
 		playing: false,
 		opacity: 1.0,
 		repeat: false
