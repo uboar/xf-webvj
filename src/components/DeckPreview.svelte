@@ -3,6 +3,7 @@
 	import type { DeckType } from '$lib/types';
 	import type { WSClientConnection } from '$lib/ws-client';
 	import { extractYouTubeVideoId, loadYouTubeIframeApi } from '$lib/youtube';
+	import { isImageFile } from '$lib/media-utils';
 
 	let {
 		decks = $bindable(),
@@ -316,6 +317,12 @@
 						{#key `${i}:${deck.sourceType ?? 'local'}:${deck.movie}`}
 							{#if (deck.sourceType ?? 'local') === 'youtube'}
 								<div bind:this={youtubeContainers[i]} class="h-full w-full"></div>
+							{:else if localVideoSources[i] && isImageFile(deck.movie)}
+								<img
+									src={localVideoSources[i]}
+									alt={deck.movie}
+									class="h-full w-full object-contain"
+								/>
 							{:else if localVideoSources[i]}
 								<!-- svelte-ignore a11y_media_has_caption -->
 								<video
@@ -331,7 +338,7 @@
 								></video>
 							{:else}
 								<div class="absolute inset-0 flex items-center justify-center text-gray-400">
-									動画をロード中...
+									メディアをロード中...
 								</div>
 							{/if}
 						{/key}

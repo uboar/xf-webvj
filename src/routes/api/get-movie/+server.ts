@@ -1,9 +1,20 @@
 import { createReadStream, statSync } from 'fs';
+import { extname } from 'path';
 import { Readable } from 'stream';
 import type { RequestHandler } from './$types';
 import { PUBLIC_MOVIE_PATH } from '$env/static/public';
 import { errorResponse } from '$lib/server/http';
-import { MovieFileError, resolveMovieFilePath } from '$lib/server/movie-files';
+import { MovieFileError, resolveMovieFilePath, isImageFileName } from '$lib/server/movie-files';
+
+const IMAGE_CONTENT_TYPES: Record<string, string> = {
+	'.jpg': 'image/jpeg',
+	'.jpeg': 'image/jpeg',
+	'.png': 'image/png',
+	'.gif': 'image/gif',
+	'.webp': 'image/webp',
+	'.bmp': 'image/bmp',
+	'.svg': 'image/svg+xml'
+};
 
 export const GET: RequestHandler = async ({ url, request }) => {
 	const fileName = url.searchParams.get('video');
@@ -15,16 +26,19 @@ export const GET: RequestHandler = async ({ url, request }) => {
 	try {
 		const videoPath = resolveMovieFilePath(fileName, PUBLIC_MOVIE_PATH);
 		const { size: fileSize } = statSync(videoPath);
+		const ext = extname(fileName).toLowerCase();
+		const isImage = isImageFileName(fileName);
+		const contentType = isImage ? (IMAGE_CONTENT_TYPES[ext] ?? 'application/octet-stream') : 'video/mp4';
 		const range = request.headers.get('range');
 
-		if (!range) {
+		if (!range || isImage) {
 			const fileStream = createReadStream(videoPath);
 			return new Response(Readable.toWeb(fileStream) as ReadableStream, {
 				status: 200,
 				headers: {
 					'Accept-Ranges': 'bytes',
 					'Content-Length': fileSize.toString(),
-					'Content-Type': 'video/mp4'
+					'Content-Type': contentType
 				}
 			});
 		}
@@ -44,7 +58,7 @@ export const GET: RequestHandler = async ({ url, request }) => {
 				'Accept-Ranges': 'bytes',
 				'Content-Length': String(end - start + 1),
 				'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-				'Content-Type': 'video/mp4'
+				'Content-Type': contentType
 			}
 		});
 	} catch (error) {

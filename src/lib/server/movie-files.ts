@@ -16,6 +16,18 @@ const MOVIE_FILE_EXTENSIONS = new Set([
 	'.mpg'
 ]);
 
+const IMAGE_FILE_EXTENSIONS = new Set([
+	'.jpg',
+	'.jpeg',
+	'.png',
+	'.gif',
+	'.webp',
+	'.bmp',
+	'.svg'
+]);
+
+const MEDIA_FILE_EXTENSIONS = new Set([...MOVIE_FILE_EXTENSIONS, ...IMAGE_FILE_EXTENSIONS]);
+
 export class MovieFileError extends Error {
 	status: number;
 
@@ -28,7 +40,9 @@ export class MovieFileError extends Error {
 
 const getMovieRoot = (root = PUBLIC_MOVIE_PATH) => resolve(root);
 
-const isMovieFileName = (fileName: string) => MOVIE_FILE_EXTENSIONS.has(extname(fileName).toLowerCase());
+const isMovieFileName = (fileName: string) => MEDIA_FILE_EXTENSIONS.has(extname(fileName).toLowerCase());
+
+export const isImageFileName = (fileName: string) => IMAGE_FILE_EXTENSIONS.has(extname(fileName).toLowerCase());
 
 const normalizeRelativeMoviePath = (filePath: string, emptyMessage = 'ファイル名が必要です') => {
 	const normalizedPath = filePath.trim().replaceAll('\\', '/');

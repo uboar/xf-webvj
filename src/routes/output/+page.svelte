@@ -3,8 +3,10 @@
 	import { WSClientConnection } from '$lib/ws-client';
 	import type { DeckType } from '$lib/types';
 	import { extractYouTubeVideoId, loadYouTubeIframeApi } from '$lib/youtube';
+	import { isImageFile } from '$lib/media-utils';
 
 	let localVideoElements: Array<HTMLVideoElement | null> = [];
+	let localImageElements: Array<HTMLImageElement | null> = [];
 	let youtubeContainers: Array<HTMLDivElement | null> = [];
 	let deckLayers: Array<HTMLDivElement | null> = [];
 	let youtubePlayers: Array<YT.Player | null> = [null, null];
@@ -112,12 +114,19 @@
 	};
 
 	const loadLocalVideo = (deckIndex: number, moviePath: string) => {
-		const video = localVideoElements[deckIndex];
-		if (!video) return;
-
 		cleanupYoutubePlayer(deckIndex);
 		loadingStates[deckIndex] = true;
 		sendLoadingState();
+
+		if (isImageFile(moviePath)) {
+			const img = localImageElements[deckIndex];
+			if (!img) return;
+			img.src = '/api/get-movie?video=' + encodeURIComponent(moviePath);
+			return;
+		}
+
+		const video = localVideoElements[deckIndex];
+		if (!video) return;
 		video.src = '/api/get-movie?video=' + encodeURIComponent(moviePath);
 		video.load();
 	};
@@ -221,6 +230,9 @@
 						localVideoElements[i]!.removeAttribute('src');
 						localVideoElements[i]!.load();
 					}
+					if (localImageElements[i]) {
+						localImageElements[i]!.removeAttribute('src');
+					}
 				} else if (getSourceType(nextDecks[i]) === 'youtube') {
 					void loadYoutubeVideo(i, nextDecks[i].movie);
 				} else {
@@ -248,6 +260,19 @@
 
 		video.currentTime = 0;
 		video.playbackRate = decks[deckIndex].rate ?? 1;
+
+		loadingStates[deckIndex] = false;
+		sendLoadingState();
+		sendMovieState();
+	};
+
+	const loadedLocalImage = (deckIndex: number) => {
+		if (!decks[deckIndex]) return;
+
+		decks[deckIndex].length = undefined;
+		decks[deckIndex].position = undefined;
+		decks[deckIndex].rate = 1;
+		decks[deckIndex].playing = false;
 
 		loadingStates[deckIndex] = false;
 		sendLoadingState();
@@ -370,6 +395,18 @@
 			{#key `${deckIndex}:${decks[deckIndex]?.sourceType ?? 'local'}:${decks[deckIndex]?.movie ?? ''}`}
 				{#if (decks[deckIndex]?.sourceType ?? 'local') === 'youtube'}
 					<div bind:this={youtubeContainers[deckIndex]} class="h-full w-full"></div>
+				{:else if decks[deckIndex]?.movie && isImageFile(decks[deckIndex].movie)}
+					<img
+						bind:this={localImageElements[deckIndex]}
+						alt=""
+						class="h-full w-full object-contain"
+						onload={() => loadedLocalImage(deckIndex)}
+						onerror={() => {
+							loadingStates[deckIndex] = false;
+							sendLoadingState();
+							console.error(`Deck ${deckIndex + 1}: Image loading error`);
+						}}
+					/>
 				{:else}
 					<!-- svelte-ignore a11y_media_has_caption -->
 					<video
