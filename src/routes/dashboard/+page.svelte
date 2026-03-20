@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Deck from '../../components/Deck.svelte';
-	import type { DeckType, DownloadMovieRequest } from '$lib/types';
+	import type { DeckType, DownloadMovieRequest, DownloadStatus } from '$lib/types';
 	import { WSClientConnection } from '$lib/ws-client';
 	import { extractYouTubeVideoId } from '$lib/youtube';
 	import MovieList from '../../components/MovieList.svelte';
@@ -23,6 +23,8 @@
 	});
 
 	let downloading = $state(false);
+	let downloadStatuses = $state<DownloadStatus[]>([]);
+	let downloadSummary = $state('');
 
 	// 名前変更・削除用の状態
 	let renameModalOpen = $state(false);
@@ -320,7 +322,87 @@
 
 	const movieDownload = async () => {
 		downloading = true;
-		await fetch('/api/download-movie', { method: 'POST', body: JSON.stringify(downloadMovie) });
+		downloadStatuses = [];
+		downloadSummary = '';
+
+		// Parse URLs to initialize statuses
+		const urls = downloadMovie.url
+			.split(/[\n\r]+/)
+			.map((line) => line.trim())
+			.filter((line) => line.length > 0 && !line.startsWith('#'));
+
+		downloadStatuses = urls.map((url, index) => ({
+			url,
+			index,
+			state: 'pending' as const,
+			message: '待機中...'
+		}));
+
+		try {
+			const response = await fetch('/api/download-movie', {
+				method: 'POST',
+				body: JSON.stringify(downloadMovie)
+			});
+
+			if (!response.ok || !response.body) {
+				downloadSummary = 'ダウンロードリクエストに失敗しました';
+				downloading = false;
+				return;
+			}
+
+			const reader = response.body.getReader();
+			const decoder = new TextDecoder();
+			let buffer = '';
+
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+
+				buffer += decoder.decode(value, { stream: true });
+				const lines = buffer.split('\n\n');
+				buffer = lines.pop() ?? '';
+
+				for (const block of lines) {
+					const dataLine = block.trim();
+					if (!dataLine.startsWith('data: ')) continue;
+					const json = dataLine.slice(6);
+					try {
+						const event = JSON.parse(json);
+						if (event.type === 'progress' && event.index < downloadStatuses.length) {
+							downloadStatuses[event.index] = {
+								...downloadStatuses[event.index],
+								state: 'downloading',
+								message: event.message
+							};
+						} else if (event.type === 'complete' && event.index < downloadStatuses.length) {
+							downloadStatuses[event.index] = {
+								...downloadStatuses[event.index],
+								state: 'complete',
+								message: 'ダウンロード完了',
+								fileName: event.fileName
+							};
+						} else if (event.type === 'error' && event.index < downloadStatuses.length) {
+							downloadStatuses[event.index] = {
+								...downloadStatuses[event.index],
+								state: 'error',
+								message: event.message
+							};
+						} else if (event.type === 'done') {
+							if (event.failed === 0) {
+								downloadSummary = `全${event.total}件のダウンロードが完了しました`;
+							} else {
+								downloadSummary = `${event.total}件中 ${event.success}件成功, ${event.failed}件失敗`;
+							}
+						}
+					} catch {
+						// ignore parse errors
+					}
+				}
+			}
+		} catch (error) {
+			downloadSummary = 'ダウンロード中にエラーが発生しました';
+		}
+
 		await getMovieList();
 		downloading = false;
 		downloadMovie.url = '';
@@ -648,6 +730,8 @@
 			{downloadMovie}
 			{downloading}
 			{movieList}
+			{downloadStatuses}
+			{downloadSummary}
 			on:moviedownload={movieDownload}
 			on:changetab={(e) => (activeTab = e.detail.tab)}
 		/>

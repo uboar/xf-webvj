@@ -4,6 +4,14 @@ export type DownloadMovieRequest = {
   output?: string
 }
 
+export type DownloadStatus = {
+  url: string
+  index: number
+  state: 'pending' | 'downloading' | 'complete' | 'error'
+  message: string
+  fileName?: string
+}
+
 export type DeckSourceType = 'local' | 'youtube'
 
 export type DeckType = {

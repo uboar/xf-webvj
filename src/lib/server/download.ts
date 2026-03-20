@@ -1,4 +1,4 @@
-import { spawnSync } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 
 export const tokenizeCommandArgs = (args: string) => {
 	const tokens: string[] = [];
@@ -57,3 +57,59 @@ export const runYtDlp = (moviePath: string, args: string, url: string) => {
 
 	return result.stdout;
 };
+
+export type DownloadProgressEvent =
+	| { type: 'progress'; url: string; index: number; message: string }
+	| { type: 'complete'; url: string; index: number; fileName: string }
+	| { type: 'error'; url: string; index: number; message: string }
+	| { type: 'done'; total: number; success: number; failed: number };
+
+export function runYtDlpAsync(
+	moviePath: string,
+	args: string,
+	url: string,
+	onProgress: (line: string) => void
+): Promise<{ stdout: string; stderr: string }> {
+	return new Promise((resolve, reject) => {
+		const proc = spawn('yt-dlp', ['--path', moviePath, '--newline', ...tokenizeCommandArgs(args), url], {
+			encoding: 'utf8'
+		} as any);
+
+		let stdout = '';
+		let stderr = '';
+
+		proc.stdout?.on('data', (data: Buffer) => {
+			const text = data.toString();
+			stdout += text;
+			for (const line of text.split('\n')) {
+				const trimmed = line.trim();
+				if (trimmed) {
+					onProgress(trimmed);
+				}
+			}
+		});
+
+		proc.stderr?.on('data', (data: Buffer) => {
+			const text = data.toString();
+			stderr += text;
+			for (const line of text.split('\n')) {
+				const trimmed = line.trim();
+				if (trimmed) {
+					onProgress(trimmed);
+				}
+			}
+		});
+
+		proc.on('close', (code) => {
+			if (code === 0) {
+				resolve({ stdout, stderr });
+			} else {
+				reject(new Error(stderr || stdout || `yt-dlp exited with code ${code}`));
+			}
+		});
+
+		proc.on('error', (err) => {
+			reject(err);
+		});
+	});
+}
