@@ -160,7 +160,7 @@
 				</div>
 				<div class="p-2 sm:p-4 w-full">
 					<h4 class="mb-2 h-10 sm:h-14 text-sm overflow-hidden text-ellipsis">
-						{deckInfo.movie}
+						{deckInfo.title ?? deckInfo.movie}
 					</h4>
 					<div class="mb-2">
 						<span class="badge badge-outline badge-sm">

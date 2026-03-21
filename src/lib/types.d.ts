@@ -18,6 +18,7 @@ export type DeckType = {
   prefix: string
   movie: string
   sourceType?: DeckSourceType
+  title?: string
   playing: boolean
   length?: number
   position?: number

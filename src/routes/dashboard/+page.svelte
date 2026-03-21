@@ -296,6 +296,7 @@
 	const loadMovie = (deck: number, name: string) => {
 		decks[deck].movie = name;
 		decks[deck].sourceType = 'local';
+		decks[deck].title = undefined;
 		decks[deck].playing = false;
 		decks[deck].length = undefined;
 		decks[deck].position = undefined;
@@ -303,7 +304,7 @@
 		sendDeckState();
 	};
 
-	const loadYoutubeMovie = (deck: number) => {
+	const loadYoutubeMovie = async (deck: number) => {
 		const value = youtubeUrls[deck]?.trim() ?? '';
 		const videoId = extractYouTubeVideoId(value);
 		if (!videoId) {
@@ -313,11 +314,25 @@
 
 		decks[deck].movie = value;
 		decks[deck].sourceType = 'youtube';
+		decks[deck].title = undefined;
 		decks[deck].playing = false;
 		decks[deck].length = undefined;
 		decks[deck].position = undefined;
 		decks[deck].rate = 1;
+		youtubeUrls[deck] = '';
 		sendDeckState();
+
+		try {
+			const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+			const res = await fetch(oembedUrl);
+			if (res.ok) {
+				const data = await res.json();
+				decks[deck].title = data.title;
+				sendDeckState();
+			}
+		} catch {
+			// タイトル取得失敗は無視
+		}
 	};
 
 	const movieDownload = async () => {
