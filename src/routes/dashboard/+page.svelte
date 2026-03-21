@@ -39,7 +39,7 @@
 	let youtubeUrls = $state(['', '']);
 
 	// タブ切り替え用の状態
-	let activeTab = $state('movies');
+	let activeTab = $state('deck');
 	let playlist = $state<string[]>([]);
 
 	let decks: DeckType[] = $state([]);
@@ -609,101 +609,105 @@
 		</div>
 	</div>
 	
-	{#if decks.length >= 2}
-		<div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-			<div class="md:col-span-2">
-				{#if wsClient}
-					<div class="relative">
-						<Deck
-							bind:deckInfo={decks[0]}
-							{wsClient}
-							senddeck={() => {
-								sendDeckState();
-							}}
-						></Deck>
-						
-						{#if videoLoadingStates[0]}
-							<div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-10">
-								<div class="text-center">
-									<div class="loading loading-spinner loading-lg text-warning mb-2"></div>
-									<div class="text-warning font-bold">動画読み込み中...</div>
-								</div>
-							</div>
-						{/if}
-					</div>
-				{/if}
-				<div class="border-base-300 border-t p-4">
-					<div class="mb-2 text-center text-sm">Deck 1 Opacity</div>
-					<input
-						type="range"
-						min="0"
-						max="100"
-						class="range range-sm w-full"
-						bind:value={deck1Opacity}
-						oninput={() => {
-							sendDeckOpacity(0, deck1Opacity);
-						}}
-					/>
-					<div class="mt-1 text-center text-xs">{deck1Opacity}%</div>
-				</div>
-			</div>
-			<div class="py-4 md:col-span-1">
-				<div class="mb-2 text-center text-sm">Crossfade</div>
-				<input
-					type="range"
-					min="0"
-					max="100"
-					class="range range-primary range-lg w-full [--range-fill:0]"
-					bind:value={xfd}
-					oninput={() => {
-						sendXFD();
-					}}
-				/>
-			</div>
-			<div class="md:col-span-2">
-				{#if wsClient}
-					<div class="relative">
-						<Deck
-							bind:deckInfo={decks[1]}
-							{wsClient}
-							senddeck={() => {
-								sendDeckState();
-							}}
-						></Deck>
-						
-						{#if videoLoadingStates[1]}
-							<div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-10">
-								<div class="text-center">
-									<div class="loading loading-spinner loading-lg text-warning mb-2"></div>
-									<div class="text-warning font-bold">動画読み込み中...</div>
-								</div>
-							</div>
-						{/if}
-					</div>
-				{/if}
-				<div class="border-base-300 border-t p-4">
-					<div class="mb-2 text-center text-sm">Deck 2 Opacity</div>
-					<input
-						type="range"
-						min="0"
-						max="100"
-						class="range range-sm w-full"
-						bind:value={deck2Opacity}
-						oninput={() => {
-							sendDeckOpacity(1, deck2Opacity);
-						}}
-					/>
-					<div class="mt-1 text-center text-xs">{deck2Opacity}%</div>
-				</div>
-			</div>
-		</div>
-	{/if}
-
 	<div class="border-base-300 border-y-2">
 		<TabNavigation {activeTab} on:changetab={(e) => (activeTab = e.detail.tab)} />
 	</div>
 
-	{#if activeTab === 'movies'}
+	{#if activeTab === 'deck'}
+		{#if decks.length >= 2}
+			<div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+				<div class="md:col-span-2">
+					{#if wsClient}
+						<div class="relative">
+							<Deck
+								bind:deckInfo={decks[0]}
+								{wsClient}
+								senddeck={() => {
+									sendDeckState();
+								}}
+							></Deck>
+
+							{#if videoLoadingStates[0]}
+								<div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-10">
+									<div class="text-center">
+										<div class="loading loading-spinner loading-lg text-warning mb-2"></div>
+										<div class="text-warning font-bold">動画読み込み中...</div>
+									</div>
+								</div>
+							{/if}
+						</div>
+					{/if}
+					<div class="border-base-300 border-t p-4">
+						<div class="mb-2 text-center text-sm">Deck 1 Opacity</div>
+						<input
+							type="range"
+							min="0"
+							max="100"
+							class="range range-sm w-full"
+							bind:value={deck1Opacity}
+							oninput={() => {
+								sendDeckOpacity(0, deck1Opacity);
+							}}
+						/>
+						<div class="mt-1 text-center text-xs">{deck1Opacity}%</div>
+					</div>
+				</div>
+				<div class="py-4 md:col-span-1">
+					<div class="mb-2 text-center text-sm">Crossfade</div>
+					<input
+						type="range"
+						min="0"
+						max="100"
+						class="range range-primary range-lg w-full [--range-fill:0]"
+						bind:value={xfd}
+						oninput={() => {
+							sendXFD();
+						}}
+					/>
+				</div>
+				<div class="md:col-span-2">
+					{#if wsClient}
+						<div class="relative">
+							<Deck
+								bind:deckInfo={decks[1]}
+								{wsClient}
+								senddeck={() => {
+									sendDeckState();
+								}}
+							></Deck>
+
+							{#if videoLoadingStates[1]}
+								<div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-10">
+									<div class="text-center">
+										<div class="loading loading-spinner loading-lg text-warning mb-2"></div>
+										<div class="text-warning font-bold">動画読み込み中...</div>
+									</div>
+								</div>
+							{/if}
+						</div>
+					{/if}
+					<div class="border-base-300 border-t p-4">
+						<div class="mb-2 text-center text-sm">Deck 2 Opacity</div>
+						<input
+							type="range"
+							min="0"
+							max="100"
+							class="range range-sm w-full"
+							bind:value={deck2Opacity}
+							oninput={() => {
+								sendDeckOpacity(1, deck2Opacity);
+							}}
+						/>
+						<div class="mt-1 text-center text-xs">{deck2Opacity}%</div>
+					</div>
+				</div>
+			</div>
+		{:else}
+			<div class="p-4 text-center">
+				<p>デッキの情報を読み込み中...</p>
+			</div>
+		{/if}
+	{:else if activeTab === 'movies'}
 		<MovieList
 			{movieList}
 			bind:searchQuery
