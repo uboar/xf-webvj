@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "xf-webvj Remote",
+  "version": "1.0.0",
+  "description": "YouTube動画をxf-webvjのDeckにロード、またはyt-dlpでダウンロード",
+  "permissions": ["storage", "activeTab", "tabs"],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "xf-webvj Remote"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "icons": {}
+}

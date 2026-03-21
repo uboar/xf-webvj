@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>xf-webvj Remote</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>xf-webvj Remote</h1>
+  </header>
+
+  <section class="section">
+    <h2>サーバー設定</h2>
+    <div class="input-row">
+      <input type="text" id="serverUrl" value="http://localhost:5173" placeholder="http://localhost:5173">
+      <button id="saveBtn" class="btn btn-save">保存</button>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>動画情報</h2>
+    <div id="currentUrl" class="current-url">YouTubeページを開いてください</div>
+  </section>
+
+  <section class="section">
+    <h2>操作</h2>
+    <div class="btn-row">
+      <button id="loadDeck1" class="btn btn-deck1 disabled" disabled>Deck 1 にロード</button>
+      <button id="loadDeck2" class="btn btn-deck2 disabled" disabled>Deck 2 にロード</button>
+    </div>
+    <hr class="divider">
+    <div class="input-group">
+      <label for="ytdlpArgs">yt-dlp 追加引数</label>
+      <input type="text" id="ytdlpArgs" placeholder="--format bestvideo+bestaudio">
+    </div>
+    <button id="downloadBtn" class="btn btn-download disabled" disabled>yt-dlp でダウンロード</button>
+  </section>
+
+  <section class="section">
+    <h2>ログ</h2>
+    <div id="statusArea" class="status-area"></div>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>
