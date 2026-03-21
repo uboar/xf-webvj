@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import Deck from '../../components/Deck.svelte';
 	import type { DeckType, DownloadMovieRequest, DownloadStatus } from '$lib/types';
 	import { WSClientConnection } from '$lib/ws-client';
@@ -61,6 +62,9 @@
 	// WebSocket接続状態
 	let wsConnected = $state(false);
 
+	// クエリパラメータからの動画ロード（初回のみ）
+	let queryParamsApplied = false;
+
 	const registerAndSync = () => {
 		wsClient?.send({
 			to: 'server',
@@ -97,6 +101,11 @@
 					}
 					if (decks[1]?.opacity !== undefined && deck2Opacity === 100) {
 						deck2Opacity = Math.round(decks[1].opacity * 100);
+					}
+					// デッキ状態受信後にクエリパラメータの動画をロード（初回のみ）
+					if (!queryParamsApplied) {
+						queryParamsApplied = true;
+						applyQueryParamLoads();
 					}
 				}
 			}
@@ -311,6 +320,44 @@
 			console.error('Failed to import playlist:', error);
 			alert('プレイリストJSONの読み込みに失敗しました。');
 		}
+	};
+
+	// クエリパラメータから動画をロード
+	// 例: /dashboard?deck1=video.mp4&deck2=https://youtu.be/xxx
+	const loadFromQueryParam = async (deckIndex: number, value: string) => {
+		if (!value || !decks[deckIndex]) return;
+		const videoId = extractYouTubeVideoId(value);
+		if (videoId) {
+			decks[deckIndex].movie = value;
+			decks[deckIndex].sourceType = 'youtube';
+			decks[deckIndex].title = undefined;
+			decks[deckIndex].playing = false;
+			decks[deckIndex].length = undefined;
+			decks[deckIndex].position = undefined;
+			decks[deckIndex].rate = 1;
+			sendDeckState();
+			try {
+				const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+				const res = await fetch(oembedUrl);
+				if (res.ok) {
+					const data = await res.json();
+					decks[deckIndex].title = data.title;
+					sendDeckState();
+				}
+			} catch {
+				// タイトル取得失敗は無視
+			}
+		} else {
+			loadMovie(deckIndex, value);
+		}
+	};
+
+	const applyQueryParamLoads = () => {
+		const params = $page.url.searchParams;
+		const deck1Value = params.get('deck1');
+		const deck2Value = params.get('deck2');
+		if (deck1Value) loadFromQueryParam(0, deck1Value);
+		if (deck2Value) loadFromQueryParam(1, deck2Value);
 	};
 
 	const loadMovie = (deck: number, name: string) => {
