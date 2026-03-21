@@ -58,9 +58,33 @@
 	// 出力ページの接続状態
 	let outputPageConnected = $state(false);
 
+	// WebSocket接続状態
+	let wsConnected = $state(false);
+
+	const registerAndSync = () => {
+		wsClient?.send({
+			to: 'server',
+			function: 'register-client',
+			body: { role: 'dashboard' }
+		});
+		wsClient?.send({ to: 'server', function: 'get-deck-state' });
+	};
+
+	const refreshInfo = () => {
+		getMovieList();
+		registerAndSync();
+	};
+
 	onMount(() => {
 		getMovieList();
 		wsClient = new WSClientConnection();
+		wsClient.onDisconnect = () => {
+			wsConnected = false;
+		};
+		wsClient.onReconnect = () => {
+			wsConnected = true;
+			registerAndSync();
+		};
 		wsClient.attachEvent({
 			to: 'dashboard',
 			function: 'get-deck-state',
@@ -133,12 +157,8 @@
 		
 		// WebSocket接続を確立し、接続後の処理を行う
 		wsClient?.connect.then(() => {
-			wsClient?.send({
-				to: 'server',
-				function: 'register-client',
-				body: { role: 'dashboard' }
-			});
-			wsClient?.send({ to: 'server', function: 'get-deck-state' });
+			wsConnected = true;
+			registerAndSync();
 		});
 
 		// キーボードイベントリスナーを追加
@@ -560,17 +580,34 @@
 	<title>xf-webvj dashboard</title>
 </svelte:head>
 <div class="w-full max-w-screen overflow-x-hidden px-2 sm:px-4">
-	{#if !outputPageConnected}
-		<div class="alert alert-warning shadow-lg mb-4">
+	{#if !wsConnected}
+		<div class="alert alert-error shadow-lg mb-2">
+			<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
 			<div>
-				<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-				<div>
-					<span class="font-bold">警告:</span> 出力ページが開かれていません。
-					<a href="/output" target="_blank" class="btn btn-xs btn-primary ml-2">出力ページを開く</a>
-				</div>
+				<span class="font-bold">切断:</span> サーバーとの接続が切れています。自動再接続を試みています...
+			</div>
+			<button class="btn btn-xs btn-outline btn-error" onclick={() => wsClient?.reconnect()}>今すぐ再接続</button>
+		</div>
+	{/if}
+	{#if !outputPageConnected}
+		<div class="alert alert-warning shadow-lg mb-2">
+			<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+			<div>
+				<span class="font-bold">警告:</span> 出力ページが開かれていません。
+				<a href="/output" target="_blank" class="btn btn-xs btn-primary ml-2">出力ページを開く</a>
 			</div>
 		</div>
 	{/if}
+	<div class="flex justify-end mb-2 gap-2">
+		<button class="btn btn-xs btn-ghost gap-1" onclick={refreshInfo} title="動画リストとデッキ状態を更新">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+			情報更新
+		</button>
+		<div class="flex items-center gap-1 text-xs {wsConnected ? 'text-success' : 'text-error'}">
+			<div class="w-2 h-2 rounded-full {wsConnected ? 'bg-success' : 'bg-error'}"></div>
+			{wsConnected ? 'WS接続中' : 'WS切断'}
+		</div>
+	</div>
 	
 	{#if decks.length >= 2}
 		<div class="grid grid-cols-1 md:grid-cols-5 gap-4">

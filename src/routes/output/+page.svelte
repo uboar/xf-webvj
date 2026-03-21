@@ -360,13 +360,21 @@
 			}
 		});
 
-		wsClient.connect.then(() => {
+		const registerOutput = () => {
 			wsClient.send({
 				to: 'server',
 				function: 'register-client',
 				body: { role: 'output' }
 			});
 			wsClient.send({ to: 'server', function: 'get-deck-state' });
+		};
+
+		wsClient.onReconnect = () => {
+			registerOutput();
+		};
+
+		wsClient.connect.then(() => {
+			registerOutput();
 		});
 
 		youtubeSyncTimer = window.setInterval(syncYoutubePositions, 250);
