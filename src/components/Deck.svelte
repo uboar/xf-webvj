@@ -39,6 +39,12 @@
 		senddeck();
 	};
 
+	const adjustSpeed = (delta: number) => {
+		const current = deckInfo.rate ?? 1;
+		deckInfo.rate = Math.round((current + delta) * 100) / 100;
+		senddeck();
+	};
+
 	const calcBPM = () => {
 		deckInfo.rate = Math.round((currentBPM / baseBPM) * 1000) / 1000;
 		senddeck();
@@ -215,34 +221,16 @@
 					</div>
 					<div class="flex flex-wrap justify-center sm:justify-between gap-1 sm:gap-2">
 						<button
-							class="btn btn-xs sm:btn-sm btn-neutral w-6 sm:w-8 rounded-full"
-							onclick={() => {
-								updateSpeed(0.5);
-							}}>0.5</button
+							class="btn btn-xs sm:btn-sm btn-neutral rounded-full"
+							onclick={() => adjustSpeed(-0.01)}>-1%</button
 						>
 						<button
-							class="btn btn-xs sm:btn-sm btn-neutral w-6 sm:w-8 rounded-full"
-							onclick={() => {
-								updateSpeed(0.75);
-							}}>0.75</button
+							class="btn btn-xs sm:btn-sm btn-neutral rounded-full"
+							onclick={() => updateSpeed(1.0)}>1x</button
 						>
 						<button
-							class="btn btn-xs sm:btn-sm btn-neutral w-6 sm:w-8 rounded-full"
-							onclick={() => {
-								updateSpeed(1.0);
-							}}>1</button
-						>
-						<button
-							class="btn btn-xs sm:btn-sm btn-neutral w-6 sm:w-8 rounded-full"
-							onclick={() => {
-								updateSpeed(1.25);
-							}}>1.25</button
-						>
-						<button
-							class="btn btn-xs sm:btn-sm btn-neutral w-6 sm:w-8 rounded-full"
-							onclick={() => {
-								updateSpeed(1.5);
-							}}>1.5</button
+							class="btn btn-xs sm:btn-sm btn-neutral rounded-full"
+							onclick={() => adjustSpeed(0.01)}>+1%</button
 						>
 						<div class="join mt-2 sm:mt-0">
 							<div>
