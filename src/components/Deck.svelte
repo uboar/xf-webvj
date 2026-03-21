@@ -45,6 +45,13 @@
 		senddeck();
 	};
 
+	const seekBy = (delta: number) => {
+		const current = deckInfo.position ?? 0;
+		const length = deckInfo.length ?? 0;
+		deckInfo.position = Math.max(0, Math.min(length, current + delta));
+		senddeck();
+	};
+
 	const calcBPM = () => {
 		deckInfo.rate = Math.round((currentBPM / baseBPM) * 1000) / 1000;
 		senddeck();
@@ -181,7 +188,15 @@
 						class="range my-2 w-full"
 						oninput={senddeck()}
 					/>
-					<div class="flex flex-wrap justify-between text-sm sm:text-base">
+					<div class="flex justify-center gap-1 my-1">
+						<button class="btn btn-xs btn-neutral rounded-full" onclick={() => seekBy(-10)}>-10s</button>
+						<button class="btn btn-xs btn-neutral rounded-full" onclick={() => seekBy(-5)}>-5s</button>
+						<button class="btn btn-xs btn-neutral rounded-full" onclick={() => seekBy(-1)}>-1s</button>
+						<button class="btn btn-xs btn-neutral rounded-full" onclick={() => seekBy(1)}>+1s</button>
+						<button class="btn btn-xs btn-neutral rounded-full" onclick={() => seekBy(5)}>+5s</button>
+						<button class="btn btn-xs btn-neutral rounded-full" onclick={() => seekBy(10)}>+10s</button>
+					</div>
+				<div class="flex flex-wrap justify-between text-sm sm:text-base">
 						<div class="text-md sm:text-xl">
 							{deckBuffer.position != undefined ? durFormat(deckBuffer.position) : 'XX'} ／ {deckBuffer.length !=
 							undefined
