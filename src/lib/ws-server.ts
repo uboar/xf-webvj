@@ -260,6 +260,18 @@ const handle = (ws: WebSocket, message: WSMessage) => {
 	}
 };
 
+export const loadDeckFromExternal = (deckIndex: number, movie: string, sourceType: 'local' | 'youtube') => {
+	if (deckIndex < 0 || deckIndex >= decksSrvState.length) return;
+	decksSrvState[deckIndex].movie = movie;
+	decksSrvState[deckIndex].sourceType = sourceType;
+	decksSrvState[deckIndex].title = undefined;
+	decksSrvState[deckIndex].playing = false;
+	decksSrvState[deckIndex].length = undefined;
+	decksSrvState[deckIndex].position = undefined;
+	decksSrvState[deckIndex].rate = 1;
+	syncDeckState();
+};
+
 export const webSocketServer: WebSocketServerType = {
 	start: (port) => {
 		if (webSocketServer.wss) {

@@ -70,36 +70,37 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // ダッシュボードタブを探してDeckにロードする共通関数
-  const loadToDeck = async (deckNumber) => {
+  // API経由でDeckにYouTube動画をロード
+  const loadToDeck = async (deckIndex) => {
     const serverUrl = serverUrlInput.value.trim().replace(/\/$/, '');
-    const dashboardUrl = serverUrl + '/dashboard?deck' + deckNumber + '=' + encodeURIComponent(currentYoutubeUrl);
 
-    // 既存のダッシュボードタブを検索
-    const tabs = await chrome.tabs.query({});
-    const dashboardTab = tabs.find((tab) =>
-      tab.url && tab.url.includes('/dashboard')
-    );
+    addLog('Deck ' + (deckIndex + 1) + ' にロード中...', 'info');
 
-    if (dashboardTab) {
-      // 既存タブのURLを更新してフォーカス
-      await chrome.tabs.update(dashboardTab.id, { url: dashboardUrl, active: true });
-      if (dashboardTab.windowId) {
-        await chrome.windows.update(dashboardTab.windowId, { focused: true });
+    try {
+      const response = await fetch(serverUrl + '/api/load-deck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deckIndex, url: currentYoutubeUrl }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        addLog('エラー: ' + (err.error || 'HTTP ' + response.status), 'error');
+        return;
       }
-      addLog('Deck ' + deckNumber + ' にロードしました', 'complete');
-    } else {
-      // ダッシュボードタブがなければ新規作成
-      await chrome.tabs.create({ url: dashboardUrl });
-      addLog('ダッシュボードを開き、Deck ' + deckNumber + ' にロードしました', 'complete');
+
+      const result = await response.json();
+      addLog('Deck ' + (deckIndex + 1) + ' にロードしました (' + result.sourceType + ')', 'complete');
+    } catch (err) {
+      addLog('エラー: ' + err.message, 'error');
     }
   };
 
   // Deck 1 にロード
-  document.getElementById('loadDeck1').addEventListener('click', () => loadToDeck(1));
+  document.getElementById('loadDeck1').addEventListener('click', () => loadToDeck(0));
 
   // Deck 2 にロード
-  document.getElementById('loadDeck2').addEventListener('click', () => loadToDeck(2));
+  document.getElementById('loadDeck2').addEventListener('click', () => loadToDeck(1));
 
   // yt-dlp ダウンロードボタン
   document.getElementById('downloadBtn').addEventListener('click', async () => {

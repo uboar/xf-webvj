@@ -3,7 +3,7 @@
   "name": "xf-webvj Remote",
   "version": "1.0.0",
   "description": "YouTube動画をxf-webvjのDeckにロード、またはyt-dlpでダウンロード",
-  "permissions": ["storage", "activeTab", "tabs"],
+  "permissions": ["storage", "activeTab"],
   "host_permissions": [
     "https://www.youtube.com/*",
     "http://localhost/*",
